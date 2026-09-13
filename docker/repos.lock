@@ -1,0 +1,11 @@
+# directory  official URL  commit
+# xr_teleoperate is vendored as ordinary files; see ../xr_teleoperate/UPSTREAM.md.
+# IsaacLab: commit recommended by Unitree's Isaac Sim 5.1 installation guide.
+# televuer/teleimager/dex-retargeting: pinned by xr_teleoperate 817fb00c.
+cyclonedds https://github.com/eclipse-cyclonedds/cyclonedds.git 5041f3560c088c99e5088b2b8520b69169621196
+IsaacLab https://github.com/isaac-sim/IsaacLab.git 80094be3245aa5c8376a7464d29cb4412ea518f5
+unitree_sdk2_python https://github.com/unitreerobotics/unitree_sdk2_python.git 65691c8a8bc53b98d3976dba4dbf9d5d20b2e7f5
+unitree_sim_isaaclab https://github.com/unitreerobotics/unitree_sim_isaaclab.git e30c25b1dffdf92ada1d6c8c1fe9a47bdde0fecc
+televuer https://github.com/unitreerobotics/televuer.git 766de45e74373ae0ea66321d942ce538385655a5
+teleimager https://github.com/unitreerobotics/teleimager.git 57cf2a40572227273fa001cd17833b755331ec97
+dex-retargeting https://github.com/silencht/dex-retargeting.git d7753d38c9ff11f80bafea6cd168351fd3db9b0e

@@ -1,0 +1,15 @@
+**
+!docker/
+!docker/**
+docker/.env
+!xr_teleoperate/
+!xr_teleoperate/**
+**/.git
+**/.git/**
+**/__pycache__
+**/*.pyc
+**/*.egg-info
+**/.pytest_cache
+**/*.pem
+xr_teleoperate/teleop/utils/data
+xr_teleoperate/teleop/cached_*.pkl
