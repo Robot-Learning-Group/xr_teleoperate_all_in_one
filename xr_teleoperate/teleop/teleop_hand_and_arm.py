@@ -186,17 +186,20 @@ if __name__ == '__main__':
             arm_ctrl = R1_A7_ArmController(motion_mode=args.motion, simulation_mode=args.sim)
 
         # end-effector
-        if args.ee in ("dex3", "inspire_ftp", "inspire_dfx") and args.input_mode == "controller":
+        if args.ee in ("inspire_ftp", "inspire_dfx") and args.input_mode == "controller":
             raise ValueError(f"{args.ee} does not support controller input mode.")
         elif args.ee == "dex3":
             from teleop.robot_control.robot_hand_unitree import Dex3_1_Controller
-            left_hand_pos_array = Array('d', 75, lock = True)      # [input]
-            right_hand_pos_array = Array('d', 75, lock = True)     # [input]
+            # Controller values are [trigger (10=open), squeeze (0=open)].
+            hand_input = [10.0, 0.0] if args.input_mode == "controller" else 75
+            left_hand_pos_array = Array('d', hand_input, lock = True)
+            right_hand_pos_array = Array('d', hand_input, lock = True)
             dual_hand_data_lock = Lock()
             dual_hand_state_array = Array('d', 14, lock = False)   # [output] current left, right hand state(14) data.
             dual_hand_action_array = Array('d', 14, lock = False)  # [output] current left, right hand action(14) data.
             hand_ctrl = Dex3_1_Controller(left_hand_pos_array, right_hand_pos_array, dual_hand_data_lock, 
-                                          dual_hand_state_array, dual_hand_action_array, simulation_mode=args.sim, xr_motion_data_ready_in=xr_motion_data_ready)
+                                          dual_hand_state_array, dual_hand_action_array, simulation_mode=args.sim, xr_motion_data_ready_in=xr_motion_data_ready,
+                                          input_mode=args.input_mode)
         elif args.ee == "dex1":
             from teleop.robot_control.robot_hand_unitree import Dex1_1_Gripper_Controller
             left_gripper_value = Value('d', 0.0, lock=True)        # [input]
@@ -320,6 +323,11 @@ if __name__ == '__main__':
                     left_hand_pos_array[:] = tele_data.left_hand_pos.flatten()
                 with right_hand_pos_array.get_lock():
                     right_hand_pos_array[:] = tele_data.right_hand_pos.flatten()
+            elif args.ee == "dex3" and args.input_mode == "controller":
+                with left_hand_pos_array.get_lock():
+                    left_hand_pos_array[:] = [tele_data.left_ctrl_triggerValue, tele_data.left_ctrl_squeezeValue]
+                with right_hand_pos_array.get_lock():
+                    right_hand_pos_array[:] = [tele_data.right_ctrl_triggerValue, tele_data.right_ctrl_squeezeValue]
             elif args.ee == "brainco" and args.input_mode == "controller":
                 with left_gripper_trigger_in.get_lock():
                     left_gripper_trigger_in.value = tele_data.left_ctrl_triggerValue
@@ -373,7 +381,7 @@ if __name__ == '__main__':
             if args.record:
                 READY = recorder.is_ready() # now ready to (2) enter RECORD_RUNNING state
                 # dex hand or gripper
-                if args.ee == "dex3" and args.input_mode == "hand":
+                if args.ee == "dex3":
                     with dual_hand_data_lock:
                         left_ee_state = dual_hand_state_array[:7]
                         right_ee_state = dual_hand_state_array[-7:]

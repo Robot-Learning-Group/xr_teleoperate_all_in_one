@@ -31,15 +31,46 @@ kTopicDex3LeftState = "rt/dex3/left/state"
 kTopicDex3RightState = "rt/dex3/right/state"
 
 
+def dex3_controller_targets(trigger, squeeze, *, left):
+    """Map TeleVuer trigger (10=open, 0=closed) / grip (0..1) to motor radians."""
+    if not np.isfinite([trigger, squeeze]).all():
+        raise ValueError("Dex3 controller inputs must be finite.")
+    index = float(np.clip(1.0 - trigger / 10.0, 0.0, 1.0))
+    middle = float(np.clip(squeeze, 0.0, 1.0))
+
+    # Poses fitted to assets/unitree_hand/unitree_dex3_left.urdf tip frames.
+    # Single-finger endpoints meet the thumb; the grasp thumb stays centered.
+    # Bilinear interpolation makes transitions continuous, including at open (0, 0).
+    thumb_index = np.array([-0.492815, 0.343824, 0.896915])
+    thumb_middle = np.array([0.492815, 0.343824, 0.896915])
+    thumb_grasp = np.array([0.0, 0.167138, 1.116476])
+    finger_pinch = np.array([-0.952493, -1.157597])
+    finger_grasp = np.array([-1.57079632, -1.74532925])  # URDF flexion limits
+    thumb = (index * (1.0 - middle) * thumb_index
+             + middle * (1.0 - index) * thumb_middle
+             + index * middle * thumb_grasp)
+    # Preserve single-finger pinches; both inputs at 1 reach full flexion.
+    both = index * middle
+    index_q = index * (1.0 - middle) * finger_pinch + both * finger_grasp
+    middle_q = middle * (1.0 - index) * finger_pinch + both * finger_grasp
+    q = np.concatenate((thumb, middle_q, index_q))
+    if not left:
+        # Both DDS hands use thumb/middle/index (see HandRetargeting API names).
+        # Only flexion signs are mirrored; do not swap the two fingers.
+        q = q * np.array([1, -1, -1, -1, -1, -1, -1])
+    return q
+
+
 class Dex3_1_Controller:
     def __init__(self, left_hand_array_in, right_hand_array_in, dual_hand_data_lock = None, dual_hand_state_array_out = None,
-                       dual_hand_action_array_out = None, fps = 100.0, Unit_Test = False, simulation_mode = False, xr_motion_data_ready_in = None):
+                       dual_hand_action_array_out = None, fps = 100.0, Unit_Test = False, simulation_mode = False, xr_motion_data_ready_in = None,
+                       input_mode = "hand"):
         """
         [note] A *_array type parameter requires using a multiprocessing Array, because it needs to be passed to the internal child process
 
-        left_hand_array_in: [input] Left hand skeleton data (required from XR device) to hand_ctrl.control_process
+        left_hand_array_in: [input] Left skeleton (75 values), or [trigger, squeeze] in controller mode
 
-        right_hand_array_in: [input] Right hand skeleton data (required from XR device) to hand_ctrl.control_process
+        right_hand_array_in: [input] Right skeleton (75 values), or [trigger, squeeze] in controller mode
 
         dual_hand_data_lock: Data synchronization lock for dual_hand_state_array and dual_hand_action_array
 
@@ -58,10 +89,14 @@ class Dex3_1_Controller:
         self.fps = fps
         self.Unit_Test = Unit_Test
         self.simulation_mode = simulation_mode
-        if not self.Unit_Test:
-            self.hand_retargeting = HandRetargeting(HandType.UNITREE_DEX3)
-        else:
-            self.hand_retargeting = HandRetargeting(HandType.UNITREE_DEX3_Unit_Test)
+        self.input_mode = input_mode
+        if self.input_mode == "hand":
+            if not self.Unit_Test:
+                self.hand_retargeting = HandRetargeting(HandType.UNITREE_DEX3)
+            else:
+                self.hand_retargeting = HandRetargeting(HandType.UNITREE_DEX3_Unit_Test)
+        elif self.input_mode != "controller":
+            raise ValueError(f"Unsupported Dex3 input mode: {self.input_mode}")
 
         # initialize handcmd publisher and handstate subscriber
         self.LeftHandCmb_publisher = ChannelPublisher(kTopicDex3LeftCommand, HandCmd_)
@@ -138,8 +173,8 @@ class Dex3_1_Controller:
                               dual_hand_data_lock = None, dual_hand_state_array_out = None, dual_hand_action_array_out = None, xr_motion_data_ready_in = None):
         self.running = True
 
-        left_q_target  = np.full(Dex3_Num_Motors, 0)
-        right_q_target = np.full(Dex3_Num_Motors, 0)
+        left_q_target = np.zeros(Dex3_Num_Motors)
+        right_q_target = np.zeros(Dex3_Num_Motors)
 
         q = 0.0
         dq = 0.0
@@ -176,9 +211,9 @@ class Dex3_1_Controller:
                 start_time = time.time()
                 # get dual hand state
                 with left_hand_array_in.get_lock():
-                    left_hand_data  = np.array(left_hand_array_in[:]).reshape(25, 3).copy()
+                    left_hand_data = np.array(left_hand_array_in[:])
                 with right_hand_array_in.get_lock():
-                    right_hand_data = np.array(right_hand_array_in[:]).reshape(25, 3).copy()
+                    right_hand_data = np.array(right_hand_array_in[:])
                 if xr_motion_data_ready_in is not None:
                     with xr_motion_data_ready_in.get_lock():
                         xr_motion_data_ready = xr_motion_data_ready_in.value
@@ -188,7 +223,20 @@ class Dex3_1_Controller:
                 # Read left and right q_state from shared arrays
                 state_data = np.concatenate((np.array(left_hand_state_array[:]), np.array(right_hand_state_array[:])))
 
-                if xr_motion_data_ready:
+                if self.input_mode == "controller":
+                    if not xr_motion_data_ready:
+                        left_q_target = state_data[:7].copy()
+                        right_q_target = state_data[7:].copy()
+                    elif np.isfinite(left_hand_data).all() and np.isfinite(right_hand_data).all():
+                        left_target = dex3_controller_targets(*left_hand_data, left=True)
+                        right_target = dex3_controller_targets(*right_hand_data, left=False)
+                        # Limit target motion to 4 rad/s (below the URDF motor limits).
+                        step = 4.0 / self.fps
+                        left_q_target += np.clip(left_target - left_q_target, -step, step)
+                        right_q_target += np.clip(right_target - right_q_target, -step, step)
+                elif xr_motion_data_ready:
+                    left_hand_data = left_hand_data.reshape(25, 3)
+                    right_hand_data = right_hand_data.reshape(25, 3)
                     ref_left_value = left_hand_data[self.hand_retargeting.left_indices[1,:]] - left_hand_data[self.hand_retargeting.left_indices[0,:]]
                     ref_right_value = right_hand_data[self.hand_retargeting.right_indices[1,:]] - right_hand_data[self.hand_retargeting.right_indices[0,:]]
 

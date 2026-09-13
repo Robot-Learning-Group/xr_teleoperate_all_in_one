@@ -1,7 +1,7 @@
 # xr_teleoperate_all_in_one
 
 Unitree 公式の実機 XR テレオペと Isaac Lab シミュレーションを、1つの Docker イメージにまとめるための骨格です。
-既定は G1 29DoF + Dex3 + ハンドトラッキング。`minimalist_compliance_control` は含めません。
+シミュレーションは G1 29DoF + Dex3。`docker/teleop.sh` はコントローラーで腕と3指ハンドを操作します。`minimalist_compliance_control` は含めません。
 
 現段階では構成・スクリプトの検証までで、イメージのフルビルドおよび GPU / XR デバイスでの動作確認は未実施です。
 
@@ -67,8 +67,21 @@ docker compose run --rm xr sim
 シミュレーションと画像サービスが起動したら、ターミナル2（同じく `docker/` 内）:
 
 ```bash
-docker compose run --rm xr teleop --record
+./teleop.sh
 ```
+
+`teleop.sh` はコントローラー・G1_29・Dex3・記録機能有効で起動します。設定はスクリプト内の Python 起動引数を直接編集します。画像サーバー IP と NIC は既存の `.env` を使い、再ビルドは不要です。素手で Dex3 も操作する場合は、従来の `docker compose run --rm xr teleop --record` を使います。
+
+左右それぞれのコントローラーで、同じ側のハンドを操作します。
+
+- トリガー：人差し指と親指でつまみます。中指は開いたままです。
+- グリップ：中指と親指でつまみます。人差し指は開いたままです。
+- 両方：押し込み量に応じて深い握り込みへ連続的に変わります。両方を押し切ると、人差し指・中指はモデル上の上限（根元90°・指先100°）まで曲がります。
+- 離す：押し込み量に応じて開きます。
+
+指の目標角度はモデルの指先位置から求めた姿勢を補間し、変化速度を最大4 rad/sに制限します。接触を検出して止める力制御ではありません。実物での指先の合い方は未確認です。調整する場合は `robot_hand_unitree.py` の `dex3_controller_targets` 内の姿勢を編集します。
+
+記録形式は従来どおり、`states` に左右各7関節の実際の角度、`actions` に速度制限後の目標角度を保存します。コントローラーの押し込み量そのものは保存しません。
 
 ヘッドセットのブラウザで画像サービス `https://<PCのLAN IP>:60001`、続いて XR UI `https://<PCのLAN IP>:8012/?ws=wss://<PCのLAN IP>:8012` を開きます。初回は自己署名証明書を信頼する操作が必要です。端末側の具体的な設定は [公式 XR 手順](https://github.com/unitreerobotics/xr_teleoperate#21--environment-setup) に従ってください。
 
@@ -83,10 +96,12 @@ docker compose run --rm xr teleop --record
 `docker/.env` の `IMG_SERVER_IP` を画像サーバーの IP、`NETWORK_INTERFACE` を実機と接続している NIC 名に設定します。画像サーバーが G1 の PC2 など別 PC で動いている場合は、その IP を指定します。
 
 ```bash
-docker compose run --rm xr teleop-real
+./teleop-real.sh
 ```
 
-`teleop-real` は既存と同じく `--sim` を付けずに公式 XR を起動します。実機用 DDS domain 0 を使用します。`teleop` は従来どおり `--sim` 付きのシミュレーション用です。実機でも記録する場合は `teleop-real --record` とします。記録処理と保存ファイルの所有者設定は今回変更していません。
+`teleop-real.sh` は G1_29 の両腕をコントローラーで操作し、記録機能も有効にします。`--sim` と `--ee` を付けず、実機用 DDS domain 0 を使います。3指ハンドの通信は待ちません。`r` で操作開始、`s` で記録開始・保存です。腕以外の関節は公式の既存処理で姿勢を保持します。
+
+スクリプト内の起動引数を直接編集でき、再ビルドは不要です。既存の `docker compose run --rm xr teleop-real` は素手・Dex3用のままなので、腕だけのコントローラー操作には `teleop-real.sh` を使ってください。保存先と保存ファイルの所有者設定は変更していません。
 
 このイメージは Linux x86_64 向けです。画像サーバーは、このリポジトリをクローンした別の x86_64 PC でも実行できます。ARM の PC2 にそのまま配置する構成ではありません。ARM 側で画像を配信する場合は、その機種に適した公式 teleimager の環境を使用します。
 
