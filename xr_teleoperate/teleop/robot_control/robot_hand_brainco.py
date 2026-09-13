@@ -138,16 +138,16 @@ class Brainco_Controller_ctrl:
                 if xr_motion_data_ready:
                     # In the official document, the angles are in the range [0, 1] ==> 0.0: fully open  1.0: fully closed
                     left_triger_value = (10.0 - left_trigger_value) / 10.0
-                    left_q_target[1]  = np.clip((left_triger_value - 0.5) / 0.5, 0.0, 0.98) # thumb-aux
-                    left_q_target[0]  = np.clip(left_triger_value / 0.5, 0.0, 0.7) # thumb
+                    left_q_target[0]  = np.clip((left_triger_value - 0.5) / 0.5, 0.0, 0.98) # thumb-aux
+                    left_q_target[1]  = np.clip(left_triger_value / 0.5, 0.0, 0.7) # thumb
                     left_q_target[2]  = np.clip(left_squeeze_value, 0.0, 0.98)                   # index
                     left_q_target[3]  = np.clip(left_triger_value, 0.0, 0.98)   # middle
                     left_q_target[4]  = np.clip(left_triger_value, 0.0, 0.98)   # ring
                     left_q_target[5]  = np.clip(left_triger_value, 0.0, 0.98)   # pinky
 
                     right_triger_value = (10.0 - right_trigger_value) / 10.0
-                    right_q_target[1] = np.clip((right_triger_value - 0.5) / 0.5, 0.0, 0.98)
-                    right_q_target[0] = np.clip(right_triger_value / 0.5, 0.0, 0.7)
+                    right_q_target[0] = np.clip((right_triger_value - 0.5) / 0.5, 0.0, 0.98)
+                    right_q_target[1] = np.clip(right_triger_value / 0.5, 0.0, 0.7)
                     right_q_target[2] = np.clip(right_squeeze_value, 0.0, 0.98)                  # index
                     right_q_target[3] = np.clip(right_triger_value, 0.0, 0.98)  # middle
                     right_q_target[4] = np.clip(right_triger_value, 0.0, 0.98)  # ring
@@ -289,8 +289,8 @@ class Brainco_Controller_hand:
 
                     # In the official document, the angles are in the range [0, 1] ==> 0.0: fully open  1.0: fully closed
                     # The q_target now is in radians, ranges:
-                    #     - idx 0:   0~1.05
-                    #     - idx 1:   0~1.52
+                    #     - idx 0:   0~1.52
+                    #     - idx 1:   0~1.05
                     #     - idx 2~5: 0~1.47
                     # We normalize them using (max - value) / range
                     def normalize(val, min_val, max_val):
@@ -298,11 +298,11 @@ class Brainco_Controller_hand:
 
                     for idx in range(brainco_Num_Motors):
                         if idx == 0:
-                            left_q_target[idx]  = normalize(left_q_target[idx], 0.0, 1.05)
-                            right_q_target[idx] = normalize(right_q_target[idx], 0.0, 1.05)
-                        elif idx == 1:
                             left_q_target[idx]  = normalize(left_q_target[idx], 0.0, 1.52)
                             right_q_target[idx] = normalize(right_q_target[idx], 0.0, 1.52)
+                        elif idx == 1:
+                            left_q_target[idx]  = normalize(left_q_target[idx], 0.0, 1.05)
+                            right_q_target[idx] = normalize(right_q_target[idx], 0.0, 1.05)
                         elif idx >= 2:
                             left_q_target[idx]  = normalize(left_q_target[idx], 0.0, 1.47)
                             right_q_target[idx] = normalize(right_q_target[idx], 0.0, 1.47)

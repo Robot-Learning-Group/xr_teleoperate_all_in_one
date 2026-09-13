@@ -69,9 +69,9 @@ class HandRetargeting:
             
             elif hand_type == HandType.BRAINCO_HAND or hand_type == HandType.BRAINCO_HAND_Unit_Test:
                 # "Driver Motor ID" of https://www.brainco-hz.com/docs/revolimb-hand/product/parameters.html
-                self.left_brainco_api_joint_names  = [ 'left_thumb_proximal_joint', 'left_thumb_metacarpal_joint', 'left_index_proximal_joint',
+                self.left_brainco_api_joint_names  = [ 'left_thumb_metacarpal_joint', 'left_thumb_proximal_joint', 'left_index_proximal_joint',
                                                        'left_middle_proximal_joint', 'left_ring_proximal_joint', 'left_pinky_proximal_joint' ]
-                self.right_brainco_api_joint_names = [ 'right_thumb_proximal_joint', 'right_thumb_metacarpal_joint', 'right_index_proximal_joint',
+                self.right_brainco_api_joint_names = [ 'right_thumb_metacarpal_joint', 'right_thumb_proximal_joint', 'right_index_proximal_joint',
                                                        'right_middle_proximal_joint', 'right_ring_proximal_joint', 'right_pinky_proximal_joint' ]
                 self.left_dex_retargeting_to_hardware = [ self.left_retargeting_joint_names.index(name) for name in self.left_brainco_api_joint_names]
                 self.right_dex_retargeting_to_hardware = [ self.right_retargeting_joint_names.index(name) for name in self.right_brainco_api_joint_names]
