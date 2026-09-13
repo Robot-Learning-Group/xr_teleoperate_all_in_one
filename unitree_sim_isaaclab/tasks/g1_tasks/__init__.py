@@ -9,6 +9,7 @@ contains various task implementations for the G1 robot, such as pick and place, 
 from . import pick_place_cylinder_g1_29dof_dex3
 from . import pick_place_cylinder_g1_29dof_dex1
 from . import pick_place_cylinder_g1_29dof_inspire
+from . import pick_place_cylinder_g1_29dof_brainco
 
 from . import pick_place_redblock_g1_29dof_dex1
 from . import pick_place_redblock_g1_29dof_dex3
@@ -24,6 +25,7 @@ from . import move_cylinder_g1_29dof_inspire_wholebody
 
 # export all modules
 __all__ = [
+        "pick_place_cylinder_g1_29dof_brainco",
         "pick_place_cylinder_g1_29dof_dex3", "pick_place_cylinder_g1_29dof_dex1", 
         "pick_place_redblock_g1_29dof_dex1", "pick_place_redblock_g1_29dof_dex3", 
         "stack_rgyblock_g1_29dof_dex1", "stack_rgyblock_g1_29dof_dex3", 

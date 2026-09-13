@@ -33,6 +33,7 @@ parser.add_argument("--action_source", type=str, default="dds",
 parser.add_argument("--robot_type", type=str, default="g129", help="robot type")
 parser.add_argument("--enable_dex1_dds", action="store_true", help="enable gripper DDS")
 parser.add_argument("--enable_dex3_dds", action="store_true", help="enable dexterous hand DDS")
+parser.add_argument("--enable_brainco_dds", action="store_true", help="enable BrainCo Revo2 DDS")
 parser.add_argument("--enable_inspire_dds", action="store_true", help="enable inspire hand DDS")
 parser.add_argument("--stats_interval", type=float, default=10.0, help="statistics print interval (seconds)")
 
@@ -85,10 +86,11 @@ if args_cli.no_render:
 else:
     os.environ["LIVESTREAM"] = "0"
 
-if args_cli.enable_dex3_dds and args_cli.enable_dex1_dds and args_cli.enable_inspire_dds:
-    print("Error: enable_dex3_dds and enable_dex1_dds and enable_inspire_dds cannot be enabled at the same time")
-    print("Please select one of the options")
-    sys.exit(1)
+if sum((args_cli.enable_dex1_dds, args_cli.enable_dex3_dds,
+        args_cli.enable_inspire_dds, args_cli.enable_brainco_dds)) > 1:
+    parser.error("Select only one hand DDS interface")
+if args_cli.enable_brainco_dds and (args_cli.replay_data or args_cli.enable_wholebody_dds or "Wholebody" in args_cli.task):
+    parser.error("BrainCo supports fixed-base teleoperation only")
 
 
 import pinocchio                 

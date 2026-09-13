@@ -33,7 +33,7 @@ RUN curl -fsSL https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_6
     conda clean -afy
 
 COPY docker/repos.lock /opt/xr-aio/repos.lock
-# Fetch all seven dependencies together, outside the editable XR directory.
+# Fetch dependencies outside the editable XR and simulator directories.
 RUN <<'BASH'
 set -euo pipefail
 mkdir -p /opt/src
@@ -49,6 +49,10 @@ while read -r name url revision; do
     git -C "$repo" init -q
     git -C "$repo" remote add origin "$url"
     git -C "$repo" fetch --depth 1 origin "$revision"
+    case "$name" in
+        brainco-description) git -C "$repo" sparse-checkout set revo2_system ;;
+        unitree_ros) git -C "$repo" sparse-checkout set robots/g1_with_brainco_hand ;;
+    esac
     git -C "$repo" checkout --detach FETCH_HEAD
     git -C "$repo" submodule update --init --recursive --depth 1
 done < /opt/xr-aio/repos.lock
@@ -74,6 +78,8 @@ WORKDIR /opt/src/IsaacLab
 # the SIGPIPE from yes when the installer finishes reading.
 RUN set +o pipefail && \
     yes Yes | conda run --no-capture-output -n unitree_sim_env bash isaaclab.sh --install none
+COPY unitree_sim_isaaclab/requirements.txt /opt/src/unitree_sim_isaaclab/requirements.txt
+RUN ln -s /opt/src/sim-teleimager /opt/src/unitree_sim_isaaclab/teleimager
 RUN conda run --no-capture-output -n unitree_sim_env python -m pip install \
       -e /opt/src/unitree_sdk2_python \
       -e /opt/src/unitree_sim_isaaclab/teleimager \
@@ -86,6 +92,7 @@ RUN sed -i 's/type:.*/type: isaacsim/' /opt/src/unitree_sim_isaaclab/teleimager/
 # Official USD assets are a separate Hugging Face download, included in the image.
 # The upstream downloader runs only inside this new build directory.
 WORKDIR /opt/src/unitree_sim_isaaclab
+COPY unitree_sim_isaaclab/fetch_assets.sh ./fetch_assets.sh
 RUN bash fetch_assets.sh
 
 COPY xr_teleoperate/requirements.txt /opt/xr-aio/xr-requirements.txt
@@ -101,6 +108,7 @@ RUN conda run --no-capture-output -n tv python -m pip install --upgrade pip && \
       -r /opt/xr-aio/xr-requirements.txt
 
 # Copy editable code last so code-only rebuilds retain the dependency layers.
+COPY unitree_sim_isaaclab /opt/src/unitree_sim_isaaclab
 COPY xr_teleoperate /opt/src/xr_teleoperate
 RUN test -f /opt/src/xr_teleoperate/teleop/teleop_hand_and_arm.py
 

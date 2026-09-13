@@ -9,4 +9,4 @@
 - Git 履歴・submodule は取り込んでいません。`.gitmodules` と Python のバイトコードキャッシュを除外しています。
 - 元の `teleimager` submodule の指定コミット: `b81de448bca9c696d7ce145f4af71c66146d0b69`。そのソースはこのディレクトリには含みません。
 
-上記の除外とこの取得元記録の追加以外、公式ソースへの変更はありません。
+追加変更: BrainCo Revo2のモデル合成・DDS・円柱taskを追加。本体状態の関節対応を名前ベースに変更。取得版と実機DDSとの差はルートREADMEの「BrainCo Revo2」を参照してください。

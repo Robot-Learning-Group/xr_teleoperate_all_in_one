@@ -246,6 +246,19 @@ class G1RobotPresets:
     include the common robot configuration preset for different scenes, support different robot variants
     """
     
+    @classmethod
+    def g1_29dof_brainco_base_fix(cls, init_pos=(-0.15, 0.0, 0.76),
+                               init_rot=(0.7071, 0, 0, 0.7071)):
+        from robots.brainco import robot_config
+        cfg = robot_config()
+        # Preserve the same body defaults as the existing Dex3 preset.
+        body = cls.g1_29dof_dex3_base_fix(init_pos, init_rot)
+        cfg.init_state = body.init_state.copy()
+        cfg.init_state.joint_pos = {n: v for n, v in body.init_state.joint_pos.items() if "_hand_" not in n}
+        cfg.init_state.joint_pos.update({".*_(metacarpal|proximal|distal)_joint": 0.0})
+        cfg.prim_path = body.prim_path
+        return cfg
+
     # === pick-place task preset ===
     
     @classmethod

@@ -29,6 +29,15 @@ def create_dds_objects(args_cli,env):
         dds_manager.register_object("inspire", inspire)
         publish_names.append("inspire")
         subscribe_names.append("inspire")
+    elif getattr(args_cli, "enable_brainco_dds", False):
+        from dds.brainco_dds import BraincoDDS
+        from tasks.common_observations.brainco_state import get_robot_brainco_joint_states
+        brainco = BraincoDDS()
+        dds_manager.register_object("brainco", brainco)
+        get_robot_brainco_joint_states(env)  # Seed measured state before publishing starts.
+        publish_names.append("brainco")
+        subscribe_names.append("brainco")
+        dds_manager.set_publish_rate("brainco", 100.0)
     if "Wholebody" in args_cli.task or args_cli.enable_wholebody_dds:
         from dds.commands_dds import RunCommandDDS
         run_command_dds = RunCommandDDS()

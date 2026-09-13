@@ -2,6 +2,10 @@
 !docker/
 !docker/**
 docker/.env
+!unitree_sim_isaaclab/
+!unitree_sim_isaaclab/**
+unitree_sim_isaaclab/assets
+unitree_sim_isaaclab/teleimager
 !xr_teleoperate/
 !xr_teleoperate/**
 **/.git

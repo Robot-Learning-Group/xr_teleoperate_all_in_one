@@ -1,13 +1,13 @@
 # xr_teleoperate_all_in_one
 
 Unitree 公式の実機 XR テレオペと Isaac Lab シミュレーションを、1つの Docker イメージにまとめるための骨格です。
-シミュレーションは G1 29DoF + Dex3。`docker/teleop.sh` はコントローラーで腕と3指ハンドを操作します。`minimalist_compliance_control` は含めません。
+シミュレーションは G1 29DoF + Dex3 / BrainCo Revo2。`docker/teleop.sh` は既定でコントローラーで腕と3指ハンドを操作します。`minimalist_compliance_control` は含めません。
 
-現段階では構成・スクリプトの検証までで、イメージのフルビルドおよび GPU / XR デバイスでの動作確認は未実施です。
+Revo2の検証範囲・制限は下記「BrainCo Revo2」を参照してください。Questでの操作・把持確認は利用環境で行ってください。
 
 ## 依存構成
 
-トップレベルのソース依存は次の5つです。`xr_teleoperate/` は通常のフォルダとして取り込み、このリポジトリでコードと変更履歴を直接管理します。残り4つは [docker/repos.lock](docker/repos.lock) に公式コミットを固定し、Docker ビルド時にイメージ内の `/opt/src/` 以下へ取得します。
+トップレベルのソース依存は次の5つです。`xr_teleoperate/` と `unitree_sim_isaaclab/` は通常のフォルダとして取り込み、このリポジトリでコードと変更履歴を直接管理します。残り3つは [docker/repos.lock](docker/repos.lock) に公式コミットを固定し、Docker ビルド時にイメージ内の `/opt/src/` 以下へ取得します。
 
 このリポジトリに Git submodule は登録しません。XR の元コミット・ライセンス・取り込み時の差分は [UPSTREAM.md](xr_teleoperate/UPSTREAM.md) に記録しています。
 
@@ -22,8 +22,8 @@ Unitree 公式の実機 XR テレオペと Isaac Lab シミュレーションを
 これに加えて、次もイメージ内に必要です。
 
 - **Isaac Sim 5.1.0**: NVIDIA の pip 配布からインストールします。ソースリポジトリの clone は不要です。
-- **televuer / teleimager / dex-retargeting**: 公式 XR が指定する版を [docker/repos.lock](docker/repos.lock) に固定し、他の4依存と一緒に `/opt/src/` へ取得します。編集用の `/opt/src/xr_teleoperate/` の外に置くので、bind mount しても依存を隠しません。`dex-retargeting` は公式 XR が参照する `silencht` 版です。
-- **シミュレーション用 teleimager**: `unitree_sim_isaaclab` が指定する別の submodule です。XR 側とは別環境にインストールします。
+- **televuer / teleimager / dex-retargeting**: 公式 XR が指定する版を [docker/repos.lock](docker/repos.lock) に固定し、他の依存と一緒に `/opt/src/` へ取得します。編集用の `/opt/src/xr_teleoperate/` の外に置くので、bind mount しても依存を隠しません。`dex-retargeting` は公式 XR が参照する `silencht` 版です。
+- **シミュレーション用 teleimager**: 元の指定版 `b81de448…` を `/opt/src/sim-teleimager` に別途取得し、XR側とは別環境にインストールします。
 - **実機カメラの画像配信**: XR 環境に `teleimager[server]` と、Ubuntu 22.04 用の `libusb-1.0-0-dev`・`libturbojpeg0-dev` をインストールします。
 - **USD・モデル等のアセット**: 公式の `fetch_assets.sh` で [Unitree の Hugging Face データセット](https://huggingface.co/datasets/unitreerobotics/unitree_sim_isaaclab_usds) から取得します。
 
@@ -44,7 +44,7 @@ docker compose build
 
 証明書と秘密鍵も、このビルド中に準備します。既存の `g1_xr_teleop_admittance` の Dockerfile と同じく、取得した televuer に `cert.pem` と `key.pem` があればコピーし、なければ OpenSSL で自己署名証明書と秘密鍵を生成します。保存先はイメージ内の `/root/.config/xr_teleoperate/` です。
 
-Dockerfile 内の1つの取得処理が `docker/repos.lock` を読み、7つの依存をイメージ内の `/opt/src/` へ取得します。各依存が必要とする submodule もそこで初期化します。利用者による別スクリプトの実行は不要です。編集用の `xr_teleoperate/` 本体は、ホストの通常ファイルを `COPY` でイメージに含めます。
+Dockerfile 内の1つの取得処理が `docker/repos.lock` を読み、依存をイメージ内の `/opt/src/` へ取得します。各依存が必要とする submodule もそこで初期化します。利用者による別スクリプトの実行は不要です。編集用の XR・シミュレータ本体は、ホストの通常ファイルを `COPY` でイメージに含めます。
 
 新しい環境では、このリポジトリを通常どおり clone すれば XR のコード・ロボットモデルも揃います。submodule の初期化や、ホストへの依存リポジトリの clone は不要です。Git LFS は Docker 内のアセット取得に使用します。
 
@@ -187,7 +187,64 @@ PyTorch は固定した公式 IsaacLab が選ぶ `2.7.0 / cu128` を使用しま
 
 - 公式版では `--input-mode` を使用し、Dex3 は hand 入力のみです。旧環境の `--xr-mode controller --ee dex3` は引き継ぎません。
 - 実機用の起動と UVC / OpenCV カメラの画像配信手順を用意しています。カメラの具体的な設定・追加ハンド用サービスは使用する機材に合わせて設定します。
-- 7つの依存は `docker/repos.lock`、XR 本体はこのリポジトリの通常ファイルとして管理します。ビルドには XR の作業ツリーの未コミット変更も含まれます。アセット取得先の revision、OS / Python の全推移依存まではロックしていません。
+- 依存は `docker/repos.lock`、XR・シミュレータ本体はこのリポジトリの通常ファイルとして管理します。ビルドには作業ツリーの未コミット変更も含まれます。アセット取得先の revision、OS / Python の全推移依存まではロックしていません。
 - Docker イメージのビルド、XR の主要モジュール・UVC の import、既定タスクのロボット・テーブルの USD と証明書の配置を確認済みです。シミュレーション環境の修正後、Pinocchio を読み込んだ状態での Isaac Sim の GPU 起動、`Sdf.TokenListOp` の操作、USD ステージの作成も確認しました。両環境の依存整合性全体、タスクを通したシミュレーション、実機カメラの検出・配信、XR 映像・操作・記録は未確認です。実機への指令送信はまだ行っていません。
 
 参照: [公式の Isaac Sim 5.1 導入手順](https://github.com/unitreerobotics/unitree_sim_isaaclab/blob/main/doc/isaacsim5.1_install.md)、[公式 XR 導入手順](https://github.com/unitreerobotics/xr_teleoperate)、[公式 submodule 定義](https://github.com/unitreerobotics/xr_teleoperate/blob/main/.gitmodules)。
+
+## BrainCo Revo2
+
+XR側の `r` は追従開始です。腕の指令を入れるとRevo2のmimic拘束が発散していた問題に対し、手の関節に数値安定化用の追加慣性を設定しました。腕・指の同時指令とリセットを含む自動再現試験で発散しないことを確認しています。**公式の物性値だけのモデルではありません**（追加慣性の説明は下記）。既存G1の脚には関節範囲を超える振動が残るため、この試験をロボット全体の安定性確認とは扱いません。Questでの操作・把持・XR記録も未確認です。
+
+`docker/` 内からシミュレータを起動します。
+
+```bash
+docker compose run --rm xr sim-brainco
+```
+
+別のデスクトップ端末でリポジトリルートから操作・記録を起動します。
+
+```bash
+./docker/teleop.sh --ee brainco
+# ハンドトラッキングの場合
+./docker/teleop.sh --ee brainco --input-mode hand
+```
+
+タスク名は `Isaac-PickPlace-Cylinder-G129-Brainco-Joint`、DDSフラグは `--enable_brainco_dds` です。共通の `G1RobotPresets.g1_29dof_brainco_base_fix()` とBrainCo DDS・状態取得処理は別シーンからも再利用できます。今回はベース固定の円柱シーンを対象とし、歩行・再生・触覚は対応しません。
+
+G1本体・腕・手首とカメラは既存Dex3モデルを参照し、手だけを差し替えます。公式モデルはビルド時に取得します。初回起動時に派生USDを既存の `isaac-cache` 内へ生成するため、手動のアセット配置は不要です。コードのbind mountはassets・teleimagerを隠しません。
+
+仕様の基準は次の固定版です。
+
+- DDS: [Unitree brainco_hand_service / d71996b6](https://github.com/unitreerobotics/brainco_hand_service/tree/d71996b6999edb2f838a3dca3d9621429a2ef966)
+- 手のUSD・URDF・mimic・リンク慣性: [BrainCo brainco-description / f332a6f0](https://github.com/BrainCoTech/brainco-description/tree/f332a6f0dc944e26b82976b637074b03f7ee8a2c/revo2_system)
+- 手首への取り付けとアダプタ: [Unitree unitree_ros / 7d6075f7](https://github.com/unitreerobotics/unitree_ros/tree/7d6075f7f58588b189b940130e3edab3c839b2df/robots/g1_with_brainco_hand)
+
+DDSは左右それぞれ `rt/brainco/{left,right}/{cmd,state}`、型は `MotorCmds_` / `MotorStates_`、各6軸です。順序は **Thumb Flex (proximal)、Thumb Aux (metacarpal)、Index、Middle、Ring、Pinky**。シミュレーションは既存のdomain 1、公式実機サービスはdomain 0です。
+
+位置指令は公式サービスと同じfloat32のclamp・1000倍・整数化を行い、URDFの関節範囲へ線形変換します。状態は実際の関節位置から求め、起動直後から指令なしでも100 Hzを目標に送信します。速度指令はURDF速度上限に対する目標角の変化率として近似し、0では目標を保持します。速度stateもURDF速度上限で正規化した近似です。実機内部の速度制御と同一ではありません。`tau_est` は公式では電流由来のため、関節トルクを入れず未再現値の0を返します。
+
+手のゲイン `stiffness=100、damping=1` は公式USD相当の検証開始値で、実機の公式ゲインではありません。接触・把持時の安定性は利用環境で確認してください。mimicは公式URDFの関係をPhysX拘束として設定します。
+
+公式URDFで空の指先リンクは、質量のない座標フレームとして先端リンク下へ配置します。USDの `mass=0` を持つ剛体として残すとPhysXが質量を自動補完するためです。各関節に公式の位置・速度上限を設定し、連動先の速度上限も超えないよう駆動側の速度を制限します。例えば人差し指は `2.2685 / 1.155 ≈ 1.9641 rad/s` が駆動側の上限です。
+
+Revo2の左右各11関節（6駆動＋5連動）に `physxJoint:armature=0.01 kg·m²` を設定します。[PhysXの追加慣性](https://docs.omniverse.nvidia.com/kit/docs/omni_physics/latest/dev_guide/guides/articulation_stability_guide.html#joint-armature)による数値安定化で、本タスクのCPU・物理刻み5 msで検証した調整値です。**BrainCo公式値や実機モータの推定慣性ではありません。** リンクの質量・慣性テンソルは公式値を維持しますが、関節空間の有効慣性は増えるため、公式慣性のみを使う当初計画からの変更です。対象は位置操作・記録であり、実機との動力学・接触力の一致は未検証です。連動関節には独立した位置駆動を追加せず、mimic比率・offsetも変更しません。G1本体・腕の設定と物理周期は維持します。
+
+画像・腕・左右各6軸のハンド指令／状態は既存の記録処理を使い、保存先・所有者・形式を維持します。XR側の親指2軸は実機DDSの順序へ修正しているため、**修正前に収集したBrainCoデータとは親指2軸の指令の意味が異なります**。過去データは自動変換しません。
+
+自動DDS検査は、実機や稼働中のシミュレータと接続しない隔離ネットワークのコンテナで `unitree_sim_env` を有効にし、シミュレータディレクトリから次を実行します。
+
+```bash
+python -m unittest discover -s tests -p test_brainco.py -v
+python tests/check_brainco_sim.py
+# カメラを有効にして確認用画像も保存する場合
+python tests/check_brainco_sim.py --images /tmp/brainco-frames
+```
+
+自動物理試験は24秒分の追従開始相当の腕指令、左右の全開・半開・全閉、腕と各指の連続同時指令、`env.reset()`を実行します。非有限値、手の位置・速度上限違反、mimic誤差、実測位置と返送用stateの不一致を失敗として扱い、例外時は終了コード1を返します。修正前イメージでは追従開始直後に失敗し、修正後イメージ単独とカメラ有効時の両方で通過しました。mimic誤差は最大約0.00030 rad、stateの位置誤差は0でした。正面・左右手首・俯瞰カメラの画像取得も確認しました。
+
+脚の関節範囲違反は別に出力し、全体の安定性を確認済みと誤表示しません。既存Dex3・Inspireは10秒分の腕指令で計算を継続しましたが、同じCPU・物理周期の条件でDex3の右足首、Inspireの右膝にも範囲違反を確認しています。この本体側の問題は未修正です。
+
+以前の検証は、ビルド・DDSテスト4件・構造検査と、腕の追従指令を入れない手単独の位置操作・画像取得に限られていました。既存Dex3・Inspireについても起動と短時間のステップ実行、本体DDS順序を確認した範囲です。これらをテレオペレーション全体の動作確認済みと扱ったことは誤りでした。
+
+未実施: Questのコントローラ／ハンドトラッキングを通した操作、円柱の把持・持ち上げ・接触時の安定性、XRによる記録ファイルの収集。これらは利用環境での確認対象です。手のゲインは上記の初期値を維持しており、把持に合わせた調整はしていません。

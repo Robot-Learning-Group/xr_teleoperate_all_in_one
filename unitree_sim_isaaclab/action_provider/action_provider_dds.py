@@ -13,12 +13,14 @@ class DDSActionProvider(ActionProvider):
         self.enable_gripper = args_cli.enable_dex1_dds
         self.enable_dex3 = args_cli.enable_dex3_dds
         self.enable_inspire = args_cli.enable_inspire_dds
+        self.enable_brainco = getattr(args_cli, "enable_brainco_dds", False)
         self.env = env
         # Initialize DDS communication
         self.robot_dds = None
         self.gripper_dds = None
         self.dex3_dds = None
         self.inspire_dds = None
+        self.brainco_dds = None
         self._setup_dds()
         self._setup_joint_mapping()
     
@@ -36,6 +38,8 @@ class DDSActionProvider(ActionProvider):
                 self.dex3_dds = dds_manager.get_object("dex3")
             elif self.enable_inspire:
                 self.inspire_dds = dds_manager.get_object("inspire")
+            elif self.enable_brainco:
+                self.brainco_dds = dds_manager.get_object("brainco")
             print(f"[{self.name}] DDS communication initialized")
         except Exception as e:
             print(f"[{self.name}] DDS initialization failed: {e}")
@@ -180,6 +184,24 @@ class DDSActionProvider(ActionProvider):
             self._inspire_special_source_idx_t = torch.tensor(self._inspire_special_source_indices, dtype=torch.long, device=device)
             self._inspire_special_scales_t = self._inspire_special_scales.to(device)
         
+        if self.enable_brainco:
+            from robots.brainco import drive_velocity_limits, joint_names
+            self._brainco_indices = {
+                side: torch.tensor([self.joint_to_index[n] for n in joint_names(side)], device=device)
+                for side in ("left", "right")
+            }
+            self._brainco_limits = {
+                side: torch.tensor(limits, device=device, dtype=torch.float32)
+                for side, limits in self.brainco_dds.limits.items()
+            }
+            self._brainco_speeds = {
+                side: torch.tensor([drive_velocity_limits(side)[n] for n in joint_names(side)], device=device)
+                for side in ("left", "right")
+            }
+            self._brainco_targets = {side: self.env.scene["robot"].data.joint_pos[0, idx].clone()
+                                     for side, idx in self._brainco_indices.items()}
+            self._brainco_step = None
+
         self._full_action_buf = torch.zeros(len(self.all_joint_names), device=device, dtype=torch.float32)
         self._positions_buf = torch.empty(29, device=device, dtype=torch.float32)
         if self.enable_gripper:
@@ -251,6 +273,25 @@ class DDSActionProvider(ActionProvider):
                             full_action.index_copy_(0, self._inspire_target_idx_t, base_vals)
                             special_vals = self._inspire_buf.index_select(0, self._inspire_special_source_idx_t) * self._inspire_special_scales_t
                             full_action.index_copy_(0, self._inspire_special_target_idx_t, special_vals)
+            elif self.brainco_dds:
+                robot = env.scene["robot"]
+                # A reset restarts the speed-limited target at the measured pose.
+                step = int(env.episode_length_buf[0])
+                if step == 0 and self._brainco_step != 0:
+                    for side, idx in self._brainco_indices.items():
+                        self._brainco_targets[side].copy_(robot.data.joint_pos[0, idx])
+                self._brainco_step = step
+                for side, cmd in self.brainco_dds.get_hand_commands().items():
+                    limits = self._brainco_limits[side]
+                    values = torch.tensor(cmd["q"], device=env.device)
+                    desired = limits[:, 0] + values * (limits[:, 1] - limits[:, 0])
+                    speed = torch.tensor(cmd["dq"], device=env.device) * limits[:, 2]
+                    max_delta = torch.minimum(speed, self._brainco_speeds[side]) * env.step_dt
+                    target = self._brainco_targets[side]
+                    target.add_(torch.clamp(desired - target, -max_delta, max_delta))
+                    idx = self._brainco_indices[side]
+                    # Existing JointPositionAction adds default_joint_pos.
+                    full_action[idx] = target - robot.data.default_joint_pos[0, idx]
             return full_action.unsqueeze(0)
             
         except Exception as e:
@@ -275,5 +316,7 @@ class DDSActionProvider(ActionProvider):
                 self.dex3_dds.stop_communication()
             if self.inspire_dds:
                 self.inspire_dds.stop_communication()
+            if self.brainco_dds:
+                self.brainco_dds.stop_communication()
         except Exception as e:
             print(f"[{self.name}] Clean up DDS resources failed: {e}")

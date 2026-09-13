@@ -13,6 +13,13 @@ case "$command" in
             --task Isaac-PickPlace-Cylinder-G129-Dex3-Joint \
             --enable_dex3_dds --robot_type g129 "$@"
         ;;
+    sim-brainco)
+        conda activate unitree_sim_env
+        cd /opt/src/unitree_sim_isaaclab
+        exec python sim_main.py --device cpu --headless --enable_cameras \
+            --task Isaac-PickPlace-Cylinder-G129-Brainco-Joint \
+            --enable_brainco_dds --robot_type g129 "$@"
+        ;;
     teleop|teleop-real)
         conda activate tv
         cd /opt/src/xr_teleoperate/teleop
@@ -49,7 +56,7 @@ case "$command" in
         exec bash "$@"
         ;;
     *)
-        echo "Usage: $0 {sim|teleop|teleop-real|image-server|image-server-cf|shell|sim-shell} [arguments...]" >&2
+        echo "Usage: $0 {sim|sim-brainco|teleop|teleop-real|image-server|image-server-cf|shell|sim-shell} [arguments...]" >&2
         exit 2
         ;;
 esac

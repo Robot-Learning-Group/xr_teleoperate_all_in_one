@@ -33,6 +33,36 @@ services:
         target: /opt/src/xr_teleoperate
         bind:
           create_host_path: false
+      - type: bind
+        source: ../unitree_sim_isaaclab/robots
+        target: /opt/src/unitree_sim_isaaclab/robots
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ../unitree_sim_isaaclab/tasks
+        target: /opt/src/unitree_sim_isaaclab/tasks
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ../unitree_sim_isaaclab/dds
+        target: /opt/src/unitree_sim_isaaclab/dds
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ../unitree_sim_isaaclab/action_provider
+        target: /opt/src/unitree_sim_isaaclab/action_provider
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ../unitree_sim_isaaclab/sim_main.py
+        target: /opt/src/unitree_sim_isaaclab/sim_main.py
+        read_only: true
+        bind:
+          create_host_path: false
       - ../data:/opt/src/xr_teleoperate/teleop/utils/data
       - type: bind
         source: /etc/vulkan/icd.d
