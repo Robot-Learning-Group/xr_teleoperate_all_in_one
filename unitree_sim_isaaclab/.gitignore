@@ -1,0 +1,127 @@
+# ================================
+# Python
+# ================================
+*/__pycache__
+*/__pycache__/
+__pycache__
+__pycache__
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# ================================
+# env
+# ================================
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+conda-meta/
+
+# ================================
+# IDE 
+# ================================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ================================
+# Jupyter Notebook
+# ================================
+.ipynb_checkpoints
+*.ipynb
+
+# ================================
+# 日志文件
+# ================================
+*.log
+logs/
+log/
+
+# ================================
+# 仿真和机器人相关
+# ================================
+# Isaac Lab 相关
+.isaac/
+isaac-sim/
+kit/
+logs/
+videos/
+screenshots/
+*.usda
+
+
+# ROS 相关（如果使用）
+devel/
+build/
+install/
+.catkin_workspace
+*.pyc
+
+# Gazebo 相关
+*.world~
+models/
+
+
+
+
+# ================================
+# 缓存和临时文件
+# ================================
+.cache/
+.tmp/
+tmp/
+temp/
+*.tmp
+*.temp
+*.bak
+*.backup
+*.old
+
+
+
+
+
+# ================================
+# Git 相关
+# ================================
+*.orig
+*.rej
+
+
+data.*
+data/
+
+assets/
+assets.*
+assets
+
+${data}
+*.etli
