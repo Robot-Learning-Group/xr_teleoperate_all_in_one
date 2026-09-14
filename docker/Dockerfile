@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM nvidia/cuda:12.2.0-runtime-ubuntu22.04
+FROM nvidia/cuda:12.2.0-runtime-ubuntu22.04 AS common
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 ENV DEBIAN_FRONTEND=noninteractive \
@@ -26,20 +26,62 @@ RUN curl -fsSL https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_6
     bash /tmp/miniconda.sh -b -p /opt/conda && rm /tmp/miniconda.sh && \
     conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main && \
     conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r && \
-    conda create -y -n unitree_sim_env python=3.11 pip && \
-    conda install -y -n unitree_sim_env -c conda-forge \
-      'libgcc-ng>=12' 'libstdcxx-ng>=12' && \
-    conda create -y -n tv python=3.10 pip pinocchio=3.1.0 numpy=1.26.4 -c conda-forge && \
     conda clean -afy
 
 COPY docker/repos.lock /opt/xr-aio/repos.lock
-# Fetch dependencies outside the editable XR and simulator directories.
+# Shared DDS sources; application dependencies are fetched only in their target.
 RUN <<'BASH'
 set -euo pipefail
 mkdir -p /opt/src
 git lfs install --skip-repo
 while read -r name url revision; do
     [[ -z "$name" || "$name" == \#* ]] && continue
+    case "$name" in
+        cyclonedds|unitree_sdk2_python) ;;
+        *) continue ;;
+    esac
+    [[ "$name" =~ ^[A-Za-z0-9_-]+$ && "$revision" =~ ^[0-9a-f]{40}$ ]] || {
+        echo "Invalid repository entry: $name" >&2
+        exit 1
+    }
+    repo="/opt/src/$name"
+    mkdir "$repo"
+    git -C "$repo" init -q
+    git -C "$repo" remote add origin "$url"
+    git -C "$repo" fetch --depth 1 origin "$revision"
+    git -C "$repo" checkout --detach FETCH_HEAD
+    git -C "$repo" submodule update --init --recursive --depth 1
+done < /opt/xr-aio/repos.lock
+BASH
+
+RUN cmake -S /opt/src/cyclonedds -B /tmp/cyclonedds-build \
+      -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/opt/cyclonedds && \
+    cmake --build /tmp/cyclonedds-build --parallel 4 --target install && \
+    rm -rf /tmp/cyclonedds-build
+ENV CYCLONEDDS_HOME=/opt/cyclonedds \
+    CMAKE_PREFIX_PATH=/opt/cyclonedds \
+    LD_LIBRARY_PATH=/opt/cyclonedds/lib:/usr/local/nvidia/lib:/usr/local/nvidia/lib64
+
+COPY docker/entrypoint.sh /opt/xr-aio/entrypoint.sh
+RUN chmod +x /opt/xr-aio/entrypoint.sh
+ENTRYPOINT ["/opt/xr-aio/entrypoint.sh"]
+
+FROM common AS sim
+RUN conda create -y -n unitree_sim_env python=3.11 pip && \
+    conda install -y -n unitree_sim_env -c conda-forge \
+      'libgcc-ng>=12' 'libstdcxx-ng>=12' && \
+    conda clean -afy
+
+RUN <<'BASH'
+set -euo pipefail
+mkdir -p /opt/src
+git lfs install --skip-repo
+while read -r name url revision; do
+    [[ -z "$name" || "$name" == \#* ]] && continue
+    case "$name" in
+        IsaacLab|sim-teleimager|brainco-description|unitree_ros) ;;
+        *) continue ;;
+    esac
     [[ "$name" =~ ^[A-Za-z0-9_-]+$ && "$revision" =~ ^[0-9a-f]{40}$ ]] || {
         echo "Invalid repository entry: $name" >&2
         exit 1
@@ -57,15 +99,6 @@ while read -r name url revision; do
     git -C "$repo" submodule update --init --recursive --depth 1
 done < /opt/xr-aio/repos.lock
 BASH
-
-RUN cmake -S /opt/src/cyclonedds -B /tmp/cyclonedds-build \
-      -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/opt/cyclonedds && \
-    cmake --build /tmp/cyclonedds-build --parallel 4 --target install && \
-    rm -rf /tmp/cyclonedds-build
-ENV CYCLONEDDS_HOME=/opt/cyclonedds \
-    CMAKE_PREFIX_PATH=/opt/cyclonedds \
-    LD_LIBRARY_PATH=/opt/cyclonedds/lib:/usr/local/nvidia/lib:/usr/local/nvidia/lib64
-
 # The IsaacLab commit in repos.lock selects torch 2.7.0 + CUDA 12.8 on x86_64.
 RUN conda run --no-capture-output -n unitree_sim_env python -m pip install --upgrade pip && \
     conda run --no-capture-output -n unitree_sim_env python -m pip install \
@@ -95,6 +128,43 @@ WORKDIR /opt/src/unitree_sim_isaaclab
 COPY unitree_sim_isaaclab/fetch_assets.sh ./fetch_assets.sh
 RUN bash fetch_assets.sh
 
+# Sim teleimager also uses the existing ~/.config/xr_teleoperate TLS files.
+RUN mkdir -p /root/.config/xr_teleoperate && \
+    openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+      -keyout /root/.config/xr_teleoperate/key.pem \
+      -out /root/.config/xr_teleoperate/cert.pem \
+      -subj "/C=JP/ST=Tokyo/L=Tokyo/O=Unitree/OU=XR/CN=localhost"
+
+COPY unitree_sim_isaaclab /opt/src/unitree_sim_isaaclab
+CMD ["sim"]
+
+FROM common AS teleop
+RUN conda create -y -n tv python=3.10 pip pinocchio=3.1.0 numpy=1.26.4 -c conda-forge && \
+    conda clean -afy
+
+RUN <<'BASH'
+set -euo pipefail
+mkdir -p /opt/src
+git lfs install --skip-repo
+while read -r name url revision; do
+    [[ -z "$name" || "$name" == \#* ]] && continue
+    case "$name" in
+        televuer|teleimager|dex-retargeting) ;;
+        *) continue ;;
+    esac
+    [[ "$name" =~ ^[A-Za-z0-9_-]+$ && "$revision" =~ ^[0-9a-f]{40}$ ]] || {
+        echo "Invalid repository entry: $name" >&2
+        exit 1
+    }
+    repo="/opt/src/$name"
+    mkdir "$repo"
+    git -C "$repo" init -q
+    git -C "$repo" remote add origin "$url"
+    git -C "$repo" fetch --depth 1 origin "$revision"
+    git -C "$repo" checkout --detach FETCH_HEAD
+    git -C "$repo" submodule update --init --recursive --depth 1
+done < /opt/xr-aio/repos.lock
+BASH
 COPY xr_teleoperate/requirements.txt /opt/xr-aio/xr-requirements.txt
 # Pinocchio 3.1.0 is installed through Conda above, as in the official setup.
 # Let dex-retargeting resolve its pip dependency on pin, as in the existing build.
@@ -107,8 +177,6 @@ RUN conda run --no-capture-output -n tv python -m pip install --upgrade pip && \
       -e /opt/src/dex-retargeting \
       -r /opt/xr-aio/xr-requirements.txt
 
-# Copy editable code last so code-only rebuilds retain the dependency layers.
-COPY unitree_sim_isaaclab /opt/src/unitree_sim_isaaclab
 COPY xr_teleoperate /opt/src/xr_teleoperate
 RUN test -f /opt/src/xr_teleoperate/teleop/teleop_hand_and_arm.py
 
@@ -123,8 +191,5 @@ RUN mkdir -p /root/.config/xr_teleoperate && \
         -subj "/C=JP/ST=Tokyo/L=Tokyo/O=Unitree/OU=XR/CN=localhost"; \
     fi
 
-COPY docker/entrypoint.sh /opt/xr-aio/entrypoint.sh
-RUN chmod +x /opt/xr-aio/entrypoint.sh
 WORKDIR /opt/src
-ENTRYPOINT ["/opt/xr-aio/entrypoint.sh"]
 CMD ["shell"]

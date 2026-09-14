@@ -1,6 +1,6 @@
 # xr_teleoperate_all_in_one
 
-Unitree 公式の実機 XR テレオペと Isaac Lab シミュレーションを、1つの Docker イメージにまとめるための骨格です。
+Unitree 公式の実機 XR テレオペと Isaac Lab シミュレーションを、用途別の2つの Docker イメージで実行します。ビルド・起動は共通の Docker Compose で管理します。
 シミュレーションは G1 29DoF + Dex3 / BrainCo Revo2。`docker/teleop.sh` は既定でコントローラーで腕と3指ハンドを操作します。`minimalist_compliance_control` は含めません。
 
 Revo2の検証範囲・制限は下記「BrainCo Revo2」を参照してください。Questでの操作・把持確認は利用環境で行ってください。
@@ -27,11 +27,17 @@ Revo2の検証範囲・制限は下記「BrainCo Revo2」を参照してくだ�
 - **実機カメラの画像配信**: XR 環境に `teleimager[server]` と、Ubuntu 22.04 用の `libusb-1.0-0-dev`・`libturbojpeg0-dev` をインストールします。
 - **USD・モデル等のアセット**: 公式の `fetch_assets.sh` で [Unitree の Hugging Face データセット](https://huggingface.co/datasets/unitreerobotics/unitree_sim_isaaclab_usds) から取得します。
 
-1イメージ内に `unitree_sim_env`（Python 3.11 / Isaac Sim 5.1）と `tv`（Python 3.10 / Pinocchio 3.1.0 / NumPy 1.26.4）を作ります。プロセスはそれぞれ別コンテナで起動し、host network で通信します。
+| Compose サービス | イメージ | Python 環境・用途 |
+| --- | --- | --- |
+| `xr` | `xr-teleoperate-all-in-one:teleop` | `tv`（Python 3.10 / Pinocchio 3.1.0 / NumPy 1.26.4）。テレオペ・記録 |
+| `sim` | `xr-teleoperate-all-in-one:sim-isaac5.1` | `unitree_sim_env`（Python 3.11 / Isaac Sim 5.1）。シミュレーション・画像配信 |
+| `image-server` | `xr` と同じテレオペ用イメージ | 実機カメラの画像配信 |
+
+各プロセスを別コンテナで起動し、host network で通信します。テレオペ用イメージには Isaac Sim・IsaacLab・Sim assets・Revo2 のシミュレーション用モデルを含めません。実機操作だけなら `sim` のビルド・起動は不要です。
 
 ## ビルド
 
-ビルドする PC は Linux x86_64、Docker Engine、Docker Compose が必要です。シミュレーションを含む `xr` サービスの実行には NVIDIA GPU、対応ドライバ、NVIDIA Container Toolkit も必要です。画像配信専用の `image-server` サービスは同じイメージを使い、GPU を要求しません。Python / CUDA Toolkit / Conda のホストへのインストールは不要です。GPU とドライバの条件は [Isaac Sim 5.1 の要件](https://docs.isaacsim.omniverse.nvidia.com/5.1.0/installation/requirements.html) を確認してください。
+ビルドする PC は Linux x86_64、Docker Engine、Docker Compose が必要です。`sim` と `xr` サービスの実行には、従来どおり NVIDIA GPU、対応ドライバ、NVIDIA Container Toolkit も必要です。XR の GPU・描画設定と既存の依存は維持し、今回はイメージの分割だけを行います。画像配信用の `image-server` は従来どおり GPU を要求しません。Python / CUDA Toolkit / Conda のホストへのインストールは不要です。GPU とドライバの条件は [Isaac Sim 5.1 の要件](https://docs.isaacsim.omniverse.nvidia.com/5.1.0/installation/requirements.html) を確認してください。
 
 Docker 関連のファイルは `docker/` にまとめています。以降の Docker コマンドは `docker/` 内で実行します。
 
@@ -40,15 +46,27 @@ cd docker
 docker compose build
 ```
 
-ビルド対象はリポジトリ全体です。除外設定は Dockerfile 専用の `docker/Dockerfile.dockerignore` に置いています。
+上記で両イメージをビルドします。必要な用途だけビルドすることもできます。
 
-証明書と秘密鍵も、このビルド中に準備します。既存の `g1_xr_teleop_admittance` の Dockerfile と同じく、取得した televuer に `cert.pem` と `key.pem` があればコピーし、なければ OpenSSL で自己署名証明書と秘密鍵を生成します。保存先はイメージ内の `/root/.config/xr_teleoperate/` です。
+```bash
+docker compose build xr            # テレオペだけ（Isaac・Sim assets の取得なし）
+docker compose build sim           # シミュレーションだけ
+docker compose build image-server  # カメラPC用。xr と同じイメージ
+```
 
-Dockerfile 内の1つの取得処理が `docker/repos.lock` を読み、依存をイメージ内の `/opt/src/` へ取得します。各依存が必要とする submodule もそこで初期化します。利用者による別スクリプトの実行は不要です。編集用の XR・シミュレータ本体は、ホストの通常ファイルを `COPY` でイメージに含めます。
+従来の `docker compose build xr` は、分割後はテレオペ用だけのビルドになります。
+
+ビルドコンテキストはリポジトリ全体ですが、各対象が必要なソースだけをコピーします。既存の `docker/Dockerfile` 内で共通部分から `teleop`・`sim` の2対象に分岐し、除外設定は `docker/Dockerfile.dockerignore` を使います。
+
+XR 用の証明書と秘密鍵も、テレオペ用イメージのビルド中に準備します。既存の `g1_xr_teleop_admittance` の Dockerfile と同じく、取得した televuer に `cert.pem` と `key.pem` があればコピーし、なければ OpenSSL で自己署名証明書と秘密鍵を生成します。保存先はイメージ内の `/root/.config/xr_teleoperate/` です。Sim 用 teleimager の固定版には証明書が同梱されていないため、Sim 用イメージでも同じ OpenSSL コマンドで同じ保存先に準備します。
+
+Dockerfile 内で `docker/repos.lock` を読み、共通依存と各用途に必要な依存を、それぞれのビルド段階でイメージ内の `/opt/src/` へ取得します。各依存が必要とする submodule もそこで初期化します。利用者による別スクリプトの実行は不要です。編集用の XR・シミュレータ本体は、ホストの通常ファイルを `COPY` でイメージに含めます。
 
 新しい環境では、このリポジトリを通常どおり clone すれば XR のコード・ロボットモデルも揃います。submodule の初期化や、ホストへの依存リポジトリの clone は不要です。Git LFS は Docker 内のアセット取得に使用します。
 
-ビルドにはネットワーク接続と十分なディスク容量が必要です。Isaac Sim、PyTorch、USD アセットを含むため大きなイメージになります。GPU に依存する動作確認は実行時に行います。
+ビルドにはネットワーク接続と十分なディスク容量が必要です。Sim 用は Isaac Sim、PyTorch、USD アセットを含むため大きなイメージになります。旧イメージ・キャッシュ・記録データは自動削除しません。GPU に依存する動作確認は実行時に行います。
+
+分割後の両イメージのビルド、XR の主要依存・CLI、BrainCo DDS テスト4件、既存のBrainCo物理回帰テストを確認しました。Dex3・Revo2のカメラ付き起動と、別イメージのXRによるDDS接続・480×640画像受信・記録処理の初期化も確認済みです。Questでの追従・把持・記録データの収集と実機操作は未確認です。既存G1の脚の振動は今回の分割では変更していません。
 
 ## シミュレーションと XR の起動
 
@@ -61,7 +79,7 @@ cp .env.example .env
 ターミナル1（`docker/` 内）:
 
 ```bash
-docker compose run --rm xr sim
+docker compose run --rm sim sim
 ```
 
 シミュレーションと画像サービスが起動したら、ターミナル2（同じく `docker/` 内）:
@@ -91,7 +109,7 @@ docker compose run --rm xr sim
 
 シミュレーションは `--headless --enable_cameras` で画面なしのカメラ描画を行います。公式ソースの `--no_render` は描画更新を止めるため、既定では使いません。DDS は XR の `--sim` による domain 1 を使い、NIC は双方で自動選択します。複数 NIC がある場合は、シミュレーション側の選択に合わせて `docker/.env` の `NETWORK_INTERFACE` を指定してください。
 
-シミュレーションとテレオペは、同じイメージ内の証明書をそのまま使います。追加の証明書作成コマンドは不要です。証明書の再発行や Apple Vision Pro 用 CA 証明書の導入が必要な場合は、公式手順に沿って設定してください。
+テレオペと Sim の画像配信は、それぞれのイメージのビルド時に準備した証明書を使います。追加の証明書作成コマンドは不要です。証明書の再発行や Apple Vision Pro 用 CA 証明書の導入が必要な場合は、公式手順に沿って設定してください。
 
 ## 実機での起動
 
@@ -111,7 +129,7 @@ docker compose run --rm xr sim
 
 ## カメラを接続した PC での画像配信
 
-画像を配信する PC にこのリポジトリをクローンし、その PC の `docker/` 内でビルドと以下の操作を行います。テレオペと同じ PC でも別 PC でも構いません。既に画像サーバーが動いている場合は追加起動は不要です。
+画像を配信する PC にこのリポジトリをクローンし、その PC の `docker/` 内で `docker compose build image-server` と以下の操作を行います。テレオペと同じ PC でも別 PC でも構いません。既に画像サーバーが動いている場合は追加起動は不要です。
 
 既存の Docker 起動スクリプトと同じ動画・USB デバイスのアクセス許可を設定しています。使うデバイスを起動時に指定します。以下は `/dev/video0` と `/dev/bus/usb` が存在する場合の例です。複数の OpenCV カメラを使う場合は、必要な `/dev/videoN` の `-v` を追加してください。
 
@@ -145,7 +163,7 @@ docker compose run --rm \
 
 ```bash
 docker compose run --rm xr shell      # tv / xr_teleoperate/teleop
-docker compose run --rm xr sim-shell  # unitree_sim_env / unitree_sim_isaaclab
+docker compose run --rm sim sim-shell  # unitree_sim_env / unitree_sim_isaaclab
 ```
 
 ## xr_teleoperate の変更
@@ -154,7 +172,7 @@ docker compose run --rm xr sim-shell  # unitree_sim_env / unitree_sim_isaaclab
 
 - Python コードの変更: ファイルを保存し、実行中の teleop を終了して起動し直します。Docker の再ビルドは不要です。
 - Python 依存や `docker/repos.lock` の版の変更: `docker compose build` で環境を作り直します。
-- 残り4つのリポジトリ: ホストへ展開せず、イメージ内の固定版を使用します。
+- `unitree_sim_isaaclab/` の編集対象コードも Sim コンテナへ bind mount します。その他の依存はイメージ内の固定版を使用します。
 
 変更の保存は、このリポジトリだけで完結します。以下は利用者がリポジトリ直下で変更内容を確認して実行する例です。
 
@@ -199,7 +217,7 @@ XR側の `r` は追従開始です。腕の指令を入れるとRevo2のmimic拘
 `docker/` 内からシミュレータを起動します。
 
 ```bash
-docker compose run --rm xr sim-brainco
+docker compose run --rm sim sim-brainco
 ```
 
 別のデスクトップ端末でリポジトリルートから操作・記録を起動します。

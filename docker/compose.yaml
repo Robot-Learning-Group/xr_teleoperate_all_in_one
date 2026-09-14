@@ -2,11 +2,57 @@ name: xr_teleoperate_all_in_one
 
 services:
   xr:
-    image: xr-teleoperate-all-in-one:isaac5.1
+    image: xr-teleoperate-all-in-one:teleop
+    platform: linux/amd64
+    build: &teleop-build
+      context: ..
+      dockerfile: docker/Dockerfile
+      target: teleop
+      network: host
+    init: true
+    network_mode: host
+    gpus: all
+    ipc: host
+    ulimits:
+      memlock: -1
+      stack: 67108864
+    stdin_open: true
+    tty: true
+    device_cgroup_rules:
+      - 'c 81:* rmw'
+      - 'c 189:* rmw'
+    environment:
+      IMG_SERVER_IP: ${IMG_SERVER_IP:-127.0.0.1}
+      NETWORK_INTERFACE: ${NETWORK_INTERFACE:-}
+      VK_ICD_FILENAMES: /usr/share/vulkan/icd.d/nvidia_icd.json
+    volumes:
+      - type: bind
+        source: ../xr_teleoperate
+        target: /opt/src/xr_teleoperate
+        bind:
+          create_host_path: false
+      - ../data:/opt/src/xr_teleoperate/teleop/utils/data
+      - type: bind
+        source: /etc/vulkan/icd.d
+        target: /etc/vulkan/icd.d
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: /usr/share/vulkan/icd.d
+        target: /usr/share/vulkan/icd.d
+        read_only: true
+        bind:
+          create_host_path: false
+    command: [shell]
+
+  sim:
+    image: xr-teleoperate-all-in-one:sim-isaac5.1
     platform: linux/amd64
     build:
       context: ..
       dockerfile: docker/Dockerfile
+      target: sim
       network: host
     init: true
     network_mode: host
@@ -28,11 +74,6 @@ services:
       VK_ICD_FILENAMES: /usr/share/vulkan/icd.d/nvidia_icd.json
     volumes:
       - isaac-cache:/root/.cache
-      - type: bind
-        source: ../xr_teleoperate
-        target: /opt/src/xr_teleoperate
-        bind:
-          create_host_path: false
       - type: bind
         source: ../unitree_sim_isaaclab/robots
         target: /opt/src/unitree_sim_isaaclab/robots
@@ -63,7 +104,6 @@ services:
         read_only: true
         bind:
           create_host_path: false
-      - ../data:/opt/src/xr_teleoperate/teleop/utils/data
       - type: bind
         source: /etc/vulkan/icd.d
         target: /etc/vulkan/icd.d
@@ -76,12 +116,13 @@ services:
         read_only: true
         bind:
           create_host_path: false
-    command: [shell]
+    command: [sim]
 
-  # Use the same built image on a camera PC without requiring an NVIDIA GPU.
+  # Share the teleop image; this service can also build it on a camera-only PC.
   image-server:
-    image: xr-teleoperate-all-in-one:isaac5.1
+    image: xr-teleoperate-all-in-one:teleop
     platform: linux/amd64
+    build: *teleop-build
     init: true
     network_mode: host
     stdin_open: true
