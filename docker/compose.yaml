@@ -26,12 +26,10 @@ services:
       NETWORK_INTERFACE: ${NETWORK_INTERFACE:-}
       VK_ICD_FILENAMES: /usr/share/vulkan/icd.d/nvidia_icd.json
     volumes:
-      - type: bind
-        source: ./certs
+      - type: volume
+        source: xr-certs
         target: /root/.config/xr_teleoperate
         read_only: true
-        bind:
-          create_host_path: false
       - type: bind
         source: ../xr_teleoperate
         target: /workspace/xr_teleoperate
@@ -85,12 +83,10 @@ services:
       NETWORK_INTERFACE: ${NETWORK_INTERFACE:-}
       VK_ICD_FILENAMES: /usr/share/vulkan/icd.d/nvidia_icd.json
     volumes:
-      - type: bind
-        source: ./certs
+      - type: volume
+        source: xr-certs
         target: /root/.config/xr_teleoperate
         read_only: true
-        bind:
-          create_host_path: false
       - isaac-cache:/root/.cache
       - type: bind
         source: ./cam_config_sim.yaml
@@ -150,12 +146,10 @@ services:
     init: true
     network_mode: host
     volumes:
-      - type: bind
-        source: ./certs
+      - type: volume
+        source: xr-certs
         target: /root/.config/xr_teleoperate
         read_only: true
-        bind:
-          create_host_path: false
       - type: bind
         source: ./cam_config_server.yaml
         target: /workspace/teleimager/cam_config_server.yaml
@@ -171,3 +165,4 @@ services:
 
 volumes:
   isaac-cache:
+  xr-certs:
