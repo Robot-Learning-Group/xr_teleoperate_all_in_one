@@ -7,7 +7,7 @@ Revo2の検証範囲・制限は下記「BrainCo Revo2」を参照してくだ�
 
 ## 依存構成
 
-トップレベルのソース依存は次の5つです。`xr_teleoperate/` と `unitree_sim_isaaclab/` は通常のフォルダとして取り込み、このリポジトリでコードと変更履歴を直接管理します。残り3つは [docker/repos.lock](docker/repos.lock) に公式コミットを固定し、Docker ビルド時にイメージ内の `/opt/src/` 以下へ取得します。
+トップレベルのソース依存は次の5つです。`xr_teleoperate/` と `unitree_sim_isaaclab/` は通常のフォルダとして取り込み、このリポジトリでコードと変更履歴を直接管理します。残り3つは [docker/repos.lock](docker/repos.lock) に公式コミットを固定し、Docker ビルド時にイメージ内の `/workspace/` 以下へ取得します。
 
 このリポジトリに Git submodule は登録しません。XR の元コミット・ライセンス・取り込み時の差分は [UPSTREAM.md](xr_teleoperate/UPSTREAM.md) に記録しています。
 
@@ -22,8 +22,8 @@ Revo2の検証範囲・制限は下記「BrainCo Revo2」を参照してくだ�
 これに加えて、次もイメージ内に必要です。
 
 - **Isaac Sim 5.1.0**: NVIDIA の pip 配布からインストールします。ソースリポジトリの clone は不要です。
-- **televuer / teleimager / dex-retargeting**: 公式 XR が指定する版を [docker/repos.lock](docker/repos.lock) に固定し、他の依存と一緒に `/opt/src/` へ取得します。編集用の `/opt/src/xr_teleoperate/` の外に置くので、bind mount しても依存を隠しません。`dex-retargeting` は公式 XR が参照する `silencht` 版です。
-- **シミュレーション用 teleimager**: 元の指定版 `b81de448…` を `/opt/src/sim-teleimager` に別途取得し、XR側とは別環境にインストールします。
+- **televuer / teleimager / dex-retargeting**: 公式 XR が指定する版を [docker/repos.lock](docker/repos.lock) に固定し、他の依存と一緒に `/workspace/` へ取得します。編集用の `/workspace/xr_teleoperate/` の外に置くので、bind mount しても依存を隠しません。`dex-retargeting` は公式 XR が参照する `silencht` 版です。
+- **シミュレーション用 teleimager**: 元の指定版 `b81de448…` を `/workspace/sim-teleimager` に別途取得し、XR側とは別環境にインストールします。
 - **実機カメラの画像配信**: XR 環境に `teleimager[server]` と、Ubuntu 22.04 用の `libusb-1.0-0-dev`・`libturbojpeg0-dev` をインストールします。
 - **USD・モデル等のアセット**: 公式の `fetch_assets.sh` で [Unitree の Hugging Face データセット](https://huggingface.co/datasets/unitreerobotics/unitree_sim_isaaclab_usds) から取得します。
 
@@ -60,7 +60,7 @@ docker compose build image-server  # カメラPC用。xr と同じイメージ
 
 XR 用の証明書と秘密鍵も、テレオペ用イメージのビルド中に準備します。既存の `g1_xr_teleop_admittance` の Dockerfile と同じく、取得した televuer に `cert.pem` と `key.pem` があればコピーし、なければ OpenSSL で自己署名証明書と秘密鍵を生成します。保存先はイメージ内の `/root/.config/xr_teleoperate/` です。Sim 用 teleimager の固定版には証明書が同梱されていないため、Sim 用イメージでも同じ OpenSSL コマンドで同じ保存先に準備します。
 
-Dockerfile 内で `docker/repos.lock` を読み、共通依存と各用途に必要な依存を、それぞれのビルド段階でイメージ内の `/opt/src/` へ取得します。各依存が必要とする submodule もそこで初期化します。利用者による別スクリプトの実行は不要です。編集用の XR・シミュレータ本体は、ホストの通常ファイルを `COPY` でイメージに含めます。
+Dockerfile 内で `docker/repos.lock` を読み、共通依存と各用途に必要な依存を、それぞれのビルド段階でイメージ内の `/workspace/` へ取得します。各依存が必要とする submodule もそこで初期化します。利用者による別スクリプトの実行は不要です。編集用の XR・シミュレータ本体は、ホストの通常ファイルを `COPY` でイメージに含めます。
 
 新しい環境では、このリポジトリを通常どおり clone すれば XR のコード・ロボットモデルも揃います。submodule の初期化や、ホストへの依存リポジトリの clone は不要です。Git LFS は Docker 内のアセット取得に使用します。
 
@@ -140,12 +140,14 @@ docker compose run --rm \
   image-server image-server-cf
 ```
 
-公式の設定ファイルを `docker/` に取り出します。このコマンドは初回に実行します。
+カメラ設定はホスト側の次のファイルを編集します。Compose が設定ファイルだけを読み取り専用でマウントするので、取り出し操作や再ビルドは不要です。変更後は対象のコンテナを終了し、同じ起動コマンドで作り直してください。
 
-```bash
-docker compose run --rm -T image-server shell -c \
-  'cat /opt/src/teleimager/cam_config_server.yaml' > cam_config_server.yaml
-```
+| 用途 | ホストの設定ファイル | 使用するサービス・コンテナ内のパス |
+| --- | --- | --- |
+| 実機カメラ | [docker/cam_config_server.yaml](docker/cam_config_server.yaml) | `xr` / `image-server`: `/workspace/teleimager/cam_config_server.yaml` |
+| シミュレーション画像配信 | [docker/cam_config_sim.yaml](docker/cam_config_sim.yaml) | `sim`: `/workspace/sim-teleimager/cam_config_server.yaml` |
+
+実機用は teleimager `57cf2a40572227273fa001cd17833b755331ec97` の設定、Sim用は `b81de448bca9c696d7ce145f4af71c66146d0b69` に既存Dockerfileの `type: isaacsim`・`image_shape: [480, 640]` を適用した設定を、既存イメージからそのまま取り出しています。実機用の編集はSim用に影響しません。Sim用の解像度は、シミュレータが生成するカメラ画像の解像度と合わせてください。
 
 カメラ検出結果に合わせて `cam_config_server.yaml` の `type`、`video_id` / `serial_number`、解像度を編集し、使わないカメラは `enable_zmq` と `enable_webrtc` を両方 false にします。設定項目は [公式 teleimager の README](https://github.com/unitreerobotics/teleimager) に従います。
 
@@ -153,7 +155,6 @@ docker compose run --rm -T image-server shell -c \
 docker compose run --rm \
   -v /dev/video0:/dev/video0 \
   -v /dev/bus/usb:/dev/bus/usb \
-  -v "$PWD/cam_config_server.yaml:/opt/src/teleimager/cam_config_server.yaml:ro" \
   image-server
 ```
 
@@ -168,7 +169,7 @@ docker compose run --rm sim sim-shell  # unitree_sim_env / unitree_sim_isaaclab
 
 ## xr_teleoperate の変更
 
-ホストの `xr_teleoperate/` をコンテナの `/opt/src/xr_teleoperate/` に bind mount しています。編集するのは、例えば `xr_teleoperate/teleop/teleop_hand_and_arm.py` や `xr_teleoperate/teleop/robot_control/robot_arm.py` です。
+ホストの `xr_teleoperate/` をコンテナの `/workspace/xr_teleoperate/` に bind mount しています。編集するのは、例えば `xr_teleoperate/teleop/teleop_hand_and_arm.py` や `xr_teleoperate/teleop/robot_control/robot_arm.py` です。
 
 - Python コードの変更: ファイルを保存し、実行中の teleop を終了して起動し直します。Docker の再ビルドは不要です。
 - Python 依存や `docker/repos.lock` の版の変更: `docker compose build` で環境を作り直します。

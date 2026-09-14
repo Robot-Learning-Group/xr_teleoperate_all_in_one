@@ -14,8 +14,8 @@ JOINT_SUFFIXES = (
     "thumb_proximal_joint", "thumb_metacarpal_joint", "index_proximal_joint",
     "middle_proximal_joint", "ring_proximal_joint", "pinky_proximal_joint",
 )
-MODEL_DIR = Path("/opt/src/brainco-description/revo2_system")
-MOUNT_DIR = Path("/opt/src/unitree_ros/robots/g1_with_brainco_hand")
+MODEL_DIR = Path("/workspace/brainco-description/revo2_system")
+MOUNT_DIR = Path("/workspace/unitree_ros/robots/g1_with_brainco_hand")
 # Numerical joint-space inertia, not an official hardware/rotor parameter.
 # Both sides of each hard mimic constraint need it when the G1 arms accelerate.
 SIM_JOINT_ARMATURE = 0.01  # kg m^2; validated for the 5 ms simulation step.

@@ -19,7 +19,7 @@ Git 履歴は取り込まず、公式の `LICENSE` と各ファイルの著作�
 - この `UPSTREAM.md` を追加。
 - Python コード・ロボットモデル・その他の公式ファイルは取り込み時点では変更なし。
 
-`televuer`・`teleimager`・`dex-retargeting` は、他の依存とまとめて Docker ビルド時に `/opt/src/` へ取得してインストールします。編集用の `/opt/src/xr_teleoperate/` の外に配置されます。
+`televuer`・`teleimager`・`dex-retargeting` は、他の依存とまとめて Docker ビルド時に `/workspace/` へ取得してインストールします。編集用の `/workspace/xr_teleoperate/` の外に配置されます。
 公式 README にある `git submodule update` や旧配置パスの手順は、この同梱版には適用しません。
 ビルド・起動・編集方法は親の [README](../README.md) を参照してください。
 

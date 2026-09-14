@@ -8,21 +8,21 @@ source /opt/conda/etc/profile.d/conda.sh
 case "$command" in
     sim)
         conda activate unitree_sim_env
-        cd /opt/src/unitree_sim_isaaclab
+        cd /workspace/unitree_sim_isaaclab
         exec python sim_main.py --device cpu --headless --enable_cameras \
             --task Isaac-PickPlace-Cylinder-G129-Dex3-Joint \
             --enable_dex3_dds --robot_type g129 "$@"
         ;;
     sim-brainco)
         conda activate unitree_sim_env
-        cd /opt/src/unitree_sim_isaaclab
+        cd /workspace/unitree_sim_isaaclab
         exec python sim_main.py --device cpu --headless --enable_cameras \
             --task Isaac-PickPlace-Cylinder-G129-Brainco-Joint \
             --enable_brainco_dds --robot_type g129 "$@"
         ;;
     teleop|teleop-real)
         conda activate tv
-        cd /opt/src/xr_teleoperate/teleop
+        cd /workspace/xr_teleoperate/teleop
         network_args=()
         if [[ -n ${NETWORK_INTERFACE:-} ]]; then
             network_args=(--network-interface "$NETWORK_INTERFACE")
@@ -38,7 +38,7 @@ case "$command" in
         ;;
     image-server|image-server-cf)
         conda activate tv
-        cd /opt/src/teleimager
+        cd /workspace/teleimager
         camera_args=()
         if [[ "$command" == image-server-cf ]]; then
             camera_args=(--cf)
@@ -48,10 +48,10 @@ case "$command" in
     shell|sim-shell)
         if [[ "$command" == sim-shell ]]; then
             conda activate unitree_sim_env
-            cd /opt/src/unitree_sim_isaaclab
+            cd /workspace/unitree_sim_isaaclab
         else
             conda activate tv
-            cd /opt/src/xr_teleoperate/teleop
+            cd /workspace/xr_teleoperate/teleop
         fi
         exec bash "$@"
         ;;

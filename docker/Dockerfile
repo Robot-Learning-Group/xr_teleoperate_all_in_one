@@ -32,7 +32,7 @@ COPY docker/repos.lock /opt/xr-aio/repos.lock
 # Shared DDS sources; application dependencies are fetched only in their target.
 RUN <<'BASH'
 set -euo pipefail
-mkdir -p /opt/src
+mkdir -p /workspace
 git lfs install --skip-repo
 while read -r name url revision; do
     [[ -z "$name" || "$name" == \#* ]] && continue
@@ -44,7 +44,7 @@ while read -r name url revision; do
         echo "Invalid repository entry: $name" >&2
         exit 1
     }
-    repo="/opt/src/$name"
+    repo="/workspace/$name"
     mkdir "$repo"
     git -C "$repo" init -q
     git -C "$repo" remote add origin "$url"
@@ -54,7 +54,7 @@ while read -r name url revision; do
 done < /opt/xr-aio/repos.lock
 BASH
 
-RUN cmake -S /opt/src/cyclonedds -B /tmp/cyclonedds-build \
+RUN cmake -S /workspace/cyclonedds -B /tmp/cyclonedds-build \
       -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/opt/cyclonedds && \
     cmake --build /tmp/cyclonedds-build --parallel 4 --target install && \
     rm -rf /tmp/cyclonedds-build
@@ -74,7 +74,7 @@ RUN conda create -y -n unitree_sim_env python=3.11 pip && \
 
 RUN <<'BASH'
 set -euo pipefail
-mkdir -p /opt/src
+mkdir -p /workspace
 git lfs install --skip-repo
 while read -r name url revision; do
     [[ -z "$name" || "$name" == \#* ]] && continue
@@ -86,7 +86,7 @@ while read -r name url revision; do
         echo "Invalid repository entry: $name" >&2
         exit 1
     }
-    repo="/opt/src/$name"
+    repo="/workspace/$name"
     mkdir "$repo"
     git -C "$repo" init -q
     git -C "$repo" remote add origin "$url"
@@ -106,25 +106,25 @@ RUN conda run --no-capture-output -n unitree_sim_env python -m pip install --upg
       --index-url https://download.pytorch.org/whl/cu128 && \
     conda run --no-capture-output -n unitree_sim_env python -m pip install \
       'isaacsim[all,extscache]==5.1.0' --extra-index-url https://pypi.nvidia.com
-WORKDIR /opt/src/IsaacLab
+WORKDIR /workspace/IsaacLab
 # Match the existing build's EULA input. Return the installer's status, not
 # the SIGPIPE from yes when the installer finishes reading.
 RUN set +o pipefail && \
     yes Yes | conda run --no-capture-output -n unitree_sim_env bash isaaclab.sh --install none
-COPY unitree_sim_isaaclab/requirements.txt /opt/src/unitree_sim_isaaclab/requirements.txt
-RUN ln -s /opt/src/sim-teleimager /opt/src/unitree_sim_isaaclab/teleimager
+COPY unitree_sim_isaaclab/requirements.txt /workspace/unitree_sim_isaaclab/requirements.txt
+RUN ln -s /workspace/sim-teleimager /workspace/unitree_sim_isaaclab/teleimager
 RUN conda run --no-capture-output -n unitree_sim_env python -m pip install \
-      -e /opt/src/unitree_sdk2_python \
-      -e /opt/src/unitree_sim_isaaclab/teleimager \
-      -r /opt/src/unitree_sim_isaaclab/requirements.txt
+      -e /workspace/unitree_sdk2_python \
+      -e /workspace/unitree_sim_isaaclab/teleimager \
+      -r /workspace/unitree_sim_isaaclab/requirements.txt
 
 # Apply the camera settings required by Unitree's Isaac Sim 5.1 guide.
-RUN sed -i 's/type:.*/type: isaacsim/' /opt/src/unitree_sim_isaaclab/teleimager/cam_config_server.yaml && \
-    sed -i 's/image_shape:.*/image_shape: [480, 640]/' /opt/src/unitree_sim_isaaclab/teleimager/cam_config_server.yaml
+RUN sed -i 's/type:.*/type: isaacsim/' /workspace/unitree_sim_isaaclab/teleimager/cam_config_server.yaml && \
+    sed -i 's/image_shape:.*/image_shape: [480, 640]/' /workspace/unitree_sim_isaaclab/teleimager/cam_config_server.yaml
 
 # Official USD assets are a separate Hugging Face download, included in the image.
 # The upstream downloader runs only inside this new build directory.
-WORKDIR /opt/src/unitree_sim_isaaclab
+WORKDIR /workspace/unitree_sim_isaaclab
 COPY unitree_sim_isaaclab/fetch_assets.sh ./fetch_assets.sh
 RUN bash fetch_assets.sh
 
@@ -135,7 +135,7 @@ RUN mkdir -p /root/.config/xr_teleoperate && \
       -out /root/.config/xr_teleoperate/cert.pem \
       -subj "/C=JP/ST=Tokyo/L=Tokyo/O=Unitree/OU=XR/CN=localhost"
 
-COPY unitree_sim_isaaclab /opt/src/unitree_sim_isaaclab
+COPY unitree_sim_isaaclab /workspace/unitree_sim_isaaclab
 CMD ["sim"]
 
 FROM common AS teleop
@@ -144,7 +144,7 @@ RUN conda create -y -n tv python=3.10 pip pinocchio=3.1.0 numpy=1.26.4 -c conda-
 
 RUN <<'BASH'
 set -euo pipefail
-mkdir -p /opt/src
+mkdir -p /workspace
 git lfs install --skip-repo
 while read -r name url revision; do
     [[ -z "$name" || "$name" == \#* ]] && continue
@@ -156,7 +156,7 @@ while read -r name url revision; do
         echo "Invalid repository entry: $name" >&2
         exit 1
     }
-    repo="/opt/src/$name"
+    repo="/workspace/$name"
     mkdir "$repo"
     git -C "$repo" init -q
     git -C "$repo" remote add origin "$url"
@@ -171,19 +171,19 @@ COPY xr_teleoperate/requirements.txt /opt/xr-aio/xr-requirements.txt
 RUN conda run --no-capture-output -n tv python -m pip install --upgrade pip && \
     conda run --no-capture-output -n tv python -m pip install \
       numpy==1.26.4 params-proto==2.13.0 \
-      -e /opt/src/unitree_sdk2_python \
-      -e /opt/src/televuer \
-      -e '/opt/src/teleimager[server]' \
-      -e /opt/src/dex-retargeting \
+      -e /workspace/unitree_sdk2_python \
+      -e /workspace/televuer \
+      -e '/workspace/teleimager[server]' \
+      -e /workspace/dex-retargeting \
       -r /opt/xr-aio/xr-requirements.txt
 
-COPY xr_teleoperate /opt/src/xr_teleoperate
-RUN test -f /opt/src/xr_teleoperate/teleop/teleop_hand_and_arm.py
+COPY xr_teleoperate /workspace/xr_teleoperate
+RUN test -f /workspace/xr_teleoperate/teleop/teleop_hand_and_arm.py
 
 # Match the existing Docker setup: prepare certificates during the build.
 RUN mkdir -p /root/.config/xr_teleoperate && \
-    if [ -f /opt/src/televuer/key.pem ] && [ -f /opt/src/televuer/cert.pem ]; then \
-      cp /opt/src/televuer/key.pem /opt/src/televuer/cert.pem /root/.config/xr_teleoperate/; \
+    if [ -f /workspace/televuer/key.pem ] && [ -f /workspace/televuer/cert.pem ]; then \
+      cp /workspace/televuer/key.pem /workspace/televuer/cert.pem /root/.config/xr_teleoperate/; \
     else \
       openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
         -keyout /root/.config/xr_teleoperate/key.pem \
@@ -191,5 +191,5 @@ RUN mkdir -p /root/.config/xr_teleoperate && \
         -subj "/C=JP/ST=Tokyo/L=Tokyo/O=Unitree/OU=XR/CN=localhost"; \
     fi
 
-WORKDIR /opt/src
+WORKDIR /workspace
 CMD ["shell"]

@@ -28,10 +28,16 @@ services:
     volumes:
       - type: bind
         source: ../xr_teleoperate
-        target: /opt/src/xr_teleoperate
+        target: /workspace/xr_teleoperate
         bind:
           create_host_path: false
-      - ../data:/opt/src/xr_teleoperate/teleop/utils/data
+      - ../data:/workspace/xr_teleoperate/teleop/utils/data
+      - type: bind
+        source: ./cam_config_server.yaml
+        target: /workspace/teleimager/cam_config_server.yaml
+        read_only: true
+        bind:
+          create_host_path: false
       - type: bind
         source: /etc/vulkan/icd.d
         target: /etc/vulkan/icd.d
@@ -75,32 +81,38 @@ services:
     volumes:
       - isaac-cache:/root/.cache
       - type: bind
+        source: ./cam_config_sim.yaml
+        target: /workspace/sim-teleimager/cam_config_server.yaml
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
         source: ../unitree_sim_isaaclab/robots
-        target: /opt/src/unitree_sim_isaaclab/robots
+        target: /workspace/unitree_sim_isaaclab/robots
         read_only: true
         bind:
           create_host_path: false
       - type: bind
         source: ../unitree_sim_isaaclab/tasks
-        target: /opt/src/unitree_sim_isaaclab/tasks
+        target: /workspace/unitree_sim_isaaclab/tasks
         read_only: true
         bind:
           create_host_path: false
       - type: bind
         source: ../unitree_sim_isaaclab/dds
-        target: /opt/src/unitree_sim_isaaclab/dds
+        target: /workspace/unitree_sim_isaaclab/dds
         read_only: true
         bind:
           create_host_path: false
       - type: bind
         source: ../unitree_sim_isaaclab/action_provider
-        target: /opt/src/unitree_sim_isaaclab/action_provider
+        target: /workspace/unitree_sim_isaaclab/action_provider
         read_only: true
         bind:
           create_host_path: false
       - type: bind
         source: ../unitree_sim_isaaclab/sim_main.py
-        target: /opt/src/unitree_sim_isaaclab/sim_main.py
+        target: /workspace/unitree_sim_isaaclab/sim_main.py
         read_only: true
         bind:
           create_host_path: false
@@ -125,6 +137,13 @@ services:
     build: *teleop-build
     init: true
     network_mode: host
+    volumes:
+      - type: bind
+        source: ./cam_config_server.yaml
+        target: /workspace/teleimager/cam_config_server.yaml
+        read_only: true
+        bind:
+          create_host_path: false
     stdin_open: true
     tty: true
     device_cgroup_rules:
