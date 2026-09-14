@@ -58,7 +58,18 @@ docker compose build image-server  # カメラPC用。xr と同じイメージ
 
 ビルドコンテキストはリポジトリ全体ですが、各対象が必要なソースだけをコピーします。既存の `docker/Dockerfile` 内で共通部分から `teleop`・`sim` の2対象に分岐し、除外設定は `docker/Dockerfile.dockerignore` を使います。
 
-XR 用の証明書と秘密鍵も、テレオペ用イメージのビルド中に準備します。既存の `g1_xr_teleop_admittance` の Dockerfile と同じく、取得した televuer に `cert.pem` と `key.pem` があればコピーし、なければ OpenSSL で自己署名証明書と秘密鍵を生成します。保存先はイメージ内の `/root/.config/xr_teleoperate/` です。Sim 用 teleimager の固定版には証明書が同梱されていないため、Sim 用イメージでも同じ OpenSSL コマンドで同じ保存先に準備します。
+証明書と秘密鍵はホストの `docker/certs/cert.pem`・`docker/certs/key.pem` の1組を共用します。Compose は `xr`・`sim`・`image-server` の `/root/.config/xr_teleoperate/` に同じフォルダを読み取り専用でマウントします。イメージを再ビルドしても、この証明書は変わりません。PEMファイルは既存の設定でGitとビルドコンテキストから除外しています。
+
+このPCでは既存XRの証明書を取り出し済みです。新しくクローンした環境では、初回ビルド後、起動前に `docker/` 内で次を一度だけ実行してください。イメージ内で従来どおり準備される証明書を初期値として取り出します。既存の `certs/` がある場合は上書きしないでください。
+
+```bash
+mkdir -m 700 certs
+docker run --rm --entrypoint tar xr-teleoperate-all-in-one:teleop \
+  -C /root/.config/xr_teleoperate -cf - cert.pem key.pem | tar -xf - -C certs
+chmod 600 certs/key.pem
+```
+
+Sim用だけをビルドしたPCでは、上のイメージ名を `xr-teleoperate-all-in-one:sim-isaac5.1` に置き換えます。共用設定を適用するには、既存コンテナを終了して同じコマンドで作り直してください。再ビルドは不要です。Quest側での自己署名証明書の初回承認は必要です。
 
 Dockerfile 内で `docker/repos.lock` を読み、共通依存と各用途に必要な依存を、それぞれのビルド段階でイメージ内の `/workspace/` へ取得します。各依存が必要とする submodule もそこで初期化します。利用者による別スクリプトの実行は不要です。編集用の XR・シミュレータ本体は、ホストの通常ファイルを `COPY` でイメージに含めます。
 
