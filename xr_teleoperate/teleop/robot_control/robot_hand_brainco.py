@@ -34,13 +34,13 @@ class Brainco_Controller_ctrl:
             self.hand_retargeting = HandRetargeting(HandType.BRAINCO_HAND_Unit_Test)
 
         # initialize handcmd publisher and handstate subscriber
-        self.LeftHandCmb_publisher = ChannelPublisher(kTopicbraincoLeftCommand, MotorCmds_)
-        self.LeftHandCmb_publisher.Init()
+        # self.LeftHandCmb_publisher = ChannelPublisher(kTopicbraincoLeftCommand, MotorCmds_)
+        # self.LeftHandCmb_publisher.Init()
         self.RightHandCmb_publisher = ChannelPublisher(kTopicbraincoRightCommand, MotorCmds_)
         self.RightHandCmb_publisher.Init()
 
-        self.LeftHandState_subscriber = ChannelSubscriber(kTopicbraincoLeftState, MotorStates_)
-        self.LeftHandState_subscriber.Init()
+        # self.LeftHandState_subscriber = ChannelSubscriber(kTopicbraincoLeftState, MotorStates_)
+        # self.LeftHandState_subscriber.Init()
         self.RightHandState_subscriber = ChannelSubscriber(kTopicbraincoRightState, MotorStates_)
         self.RightHandState_subscriber.Init()
 
@@ -68,12 +68,14 @@ class Brainco_Controller_ctrl:
 
     def _subscribe_hand_state(self):
         while True:
-            left_hand_msg  = self.LeftHandState_subscriber.Read()
+            # left_hand_msg  = self.LeftHandState_subscriber.Read()
             right_hand_msg = self.RightHandState_subscriber.Read()
-            if left_hand_msg is not None and right_hand_msg is not None:
+            # Only the right hand is connected; do not wait for the left.
+            # if left_hand_msg is not None and right_hand_msg is not None:
+            if right_hand_msg is not None:
                 # Update left hand state
-                for idx, id in enumerate(Brainco_Left_Hand_JointIndex):
-                    self.left_hand_state_array[idx] = left_hand_msg.states[id].q
+                # for idx, id in enumerate(Brainco_Left_Hand_JointIndex):
+                #     self.left_hand_state_array[idx] = left_hand_msg.states[id].q
                 # Update right hand state
                 for idx, id in enumerate(Brainco_Right_Hand_JointIndex):
                     self.right_hand_state_array[idx] = right_hand_msg.states[id].q
@@ -89,7 +91,7 @@ class Brainco_Controller_ctrl:
         for idx, id in enumerate(Brainco_Right_Hand_JointIndex):             
             self.right_hand_msg.cmds[id].q = right_q_target[idx] 
 
-        self.LeftHandCmb_publisher.Write(self.left_hand_msg)
+        # self.LeftHandCmb_publisher.Write(self.left_hand_msg)
         self.RightHandCmb_publisher.Write(self.right_hand_msg)
         # logger_mp.debug("hand ctrl publish ok.")
     
@@ -185,13 +187,13 @@ class Brainco_Controller_hand:
 
 
         # initialize handcmd publisher and handstate subscriber
-        self.LeftHandCmb_publisher = ChannelPublisher(kTopicbraincoLeftCommand, MotorCmds_)
-        self.LeftHandCmb_publisher.Init()
+        # self.LeftHandCmb_publisher = ChannelPublisher(kTopicbraincoLeftCommand, MotorCmds_)
+        # self.LeftHandCmb_publisher.Init()
         self.RightHandCmb_publisher = ChannelPublisher(kTopicbraincoRightCommand, MotorCmds_)
         self.RightHandCmb_publisher.Init()
 
-        self.LeftHandState_subscriber = ChannelSubscriber(kTopicbraincoLeftState, MotorStates_)
-        self.LeftHandState_subscriber.Init()
+        # self.LeftHandState_subscriber = ChannelSubscriber(kTopicbraincoLeftState, MotorStates_)
+        # self.LeftHandState_subscriber.Init()
         self.RightHandState_subscriber = ChannelSubscriber(kTopicbraincoRightState, MotorStates_)
         self.RightHandState_subscriber.Init()
 
@@ -218,12 +220,14 @@ class Brainco_Controller_hand:
 
     def _subscribe_hand_state(self):
         while True:
-            left_hand_msg  = self.LeftHandState_subscriber.Read()
+            # left_hand_msg  = self.LeftHandState_subscriber.Read()
             right_hand_msg = self.RightHandState_subscriber.Read()
-            if left_hand_msg is not None and right_hand_msg is not None:
+            # Only the right hand is connected; do not wait for the left.
+            # if left_hand_msg is not None and right_hand_msg is not None:
+            if right_hand_msg is not None:
                 # Update left hand state
-                for idx, id in enumerate(Brainco_Left_Hand_JointIndex):
-                    self.left_hand_state_array[idx] = left_hand_msg.states[id].q
+                # for idx, id in enumerate(Brainco_Left_Hand_JointIndex):
+                #     self.left_hand_state_array[idx] = left_hand_msg.states[id].q
                 # Update right hand state
                 for idx, id in enumerate(Brainco_Right_Hand_JointIndex):
                     self.right_hand_state_array[idx] = right_hand_msg.states[id].q
@@ -239,7 +243,7 @@ class Brainco_Controller_hand:
         for idx, id in enumerate(Brainco_Right_Hand_JointIndex):             
             self.right_hand_msg.cmds[id].q = right_q_target[idx] 
 
-        self.LeftHandCmb_publisher.Write(self.left_hand_msg)
+        # self.LeftHandCmb_publisher.Write(self.left_hand_msg)
         self.RightHandCmb_publisher.Write(self.right_hand_msg)
         # logger_mp.debug("hand ctrl publish ok.")
     
