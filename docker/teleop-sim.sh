@@ -8,7 +8,7 @@ if [[ -z ${DISPLAY:-} || ! -r $xauthority ]]; then
     exit 1
 fi
 
-# Simulation: G1_29 + Dex3, controller tracking, recording enabled.
+# Simulation teleoperation: G1_29 + Dex3, controller tracking, recording enabled.
 # Edit the Python arguments below to change the startup settings.
 exec docker compose run --rm \
     -e DISPLAY="$DISPLAY" \

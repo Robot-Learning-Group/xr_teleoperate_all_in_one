@@ -20,7 +20,7 @@ case "$command" in
             --task Isaac-PickPlace-Cylinder-G129-Brainco-Joint \
             --enable_brainco_dds --robot_type g129 "$@"
         ;;
-    teleop|teleop-real)
+    teleop-sim|teleop-real)
         conda activate tv
         cd /workspace/xr_teleoperate/teleop
         network_args=()
@@ -28,7 +28,7 @@ case "$command" in
             network_args=(--network-interface "$NETWORK_INTERFACE")
         fi
         mode_args=()
-        if [[ "$command" == teleop ]]; then
+        if [[ "$command" == teleop-sim ]]; then
             mode_args=(--sim)
         fi
         exec python teleop_hand_and_arm.py --input-mode hand --arm G1_29 \
@@ -56,7 +56,7 @@ case "$command" in
         exec bash "$@"
         ;;
     *)
-        echo "Usage: $0 {sim|sim-brainco|teleop|teleop-real|image-server|image-server-cf|shell|sim-shell} [arguments...]" >&2
+        echo "Usage: $0 {sim|sim-brainco|teleop-sim|teleop-real|image-server|image-server-cf|shell|sim-shell} [arguments...]" >&2
         exit 2
         ;;
 esac
