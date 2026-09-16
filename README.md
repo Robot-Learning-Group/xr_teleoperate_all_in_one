@@ -71,12 +71,12 @@ Sim起動時に `--task` を追加します。
 
 XR側の起動コマンドは同じです。Revo2は現在、円柱タスクのみ対応しています。
 
-## データセット名の変更
+## データセット名、言語指示の変更
 
-XR起動時に `--task-name` を指定します。
+データセット名は`--task-name` を、言語指示は'--task-goal'を指定します。
 
 ```bash
-./docker/teleop-sim.sh --task-name red_block_01
+./docker/teleop-sim.sh --task-name red_block_01　--task-goal "pick up the red block"
 ```
 
 ホストの `data/<指定した名前>/episode_XXXX/` に保存します。同じ名前で再起動するとエピソードを追加します。
