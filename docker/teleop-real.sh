@@ -10,7 +10,7 @@ fi
 
 # Real G1_29: controller tracking, arms only, recording enabled.
 # Edit the Python arguments below to change the startup settings.
-exec docker compose run --rm \
+exec docker compose --env-file .env.real run --rm \
     -e DISPLAY="$DISPLAY" \
     -e XAUTHORITY=/tmp/xr.Xauthority \
     -v /tmp/.X11-unix:/tmp/.X11-unix:ro \

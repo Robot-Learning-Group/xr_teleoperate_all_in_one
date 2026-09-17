@@ -35,4 +35,4 @@ case "$ee" in
         ;;
 esac
 
-exec docker compose run --rm sim "$sim_command" "${sim_args[@]}"
+exec docker compose --env-file .env.sim run --rm sim "$sim_command" "${sim_args[@]}"

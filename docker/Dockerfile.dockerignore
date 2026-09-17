@@ -2,6 +2,8 @@
 !docker/
 !docker/**
 docker/.env
+docker/.env.sim
+docker/.env.real
 !unitree_sim_isaaclab/
 !unitree_sim_isaaclab/**
 unitree_sim_isaaclab/assets

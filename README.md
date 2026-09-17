@@ -13,7 +13,7 @@ docker compose build sim  # シミュレーション
 ```
 
 ## シミュレーションとXRの起動
-
+0. 初回は`cp docker/.env.sim.example docker/.env.sim` で設定ファイルを作成
 1. `docker/.env` の`IMG_SERVER_IP` をQuestから接続できる画像サーバーPCのLAN IPに`NETWORK_INTERFACE` をテレオペを動かすPCのネットワークインターフェース名に設定。
 2. シミュレーションの起動
 ```bash
@@ -31,7 +31,7 @@ Questで `https://<XRを動かすPCのIP>:8012/` を開き、証明書の警告�
 `t` は追従開始前にも使え、記録の開始・保存は行いません。記録中なら記録を継続します。
 
 ## 実機での起動
-
+0. 初回は`cp docker/.env.real.example docker/.env.real` で設定ファイルを作成
 1. `docker/.env` の `IMG_SERVER_IP` を画像サーバーPCのIP、`NETWORK_INTERFACE` をテレオペを動かすPCのネットワークインターフェース名に設定。
 2. コントローラのL2＋R2を長押しして、G1をDeveloperモードにする
 3. テレオペ起動

@@ -10,7 +10,7 @@ fi
 
 # Simulation teleoperation: G1_29 + Dex3, controller tracking, recording enabled.
 # Edit the Python arguments below to change the startup settings.
-exec docker compose run --rm \
+exec docker compose --env-file .env.sim run --rm \
     -e DISPLAY="$DISPLAY" \
     -e XAUTHORITY=/tmp/xr.Xauthority \
     -v /tmp/.X11-unix:/tmp/.X11-unix:ro \
