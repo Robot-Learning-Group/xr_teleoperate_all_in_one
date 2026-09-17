@@ -106,6 +106,7 @@ left_wrist_camera:
 - 使わないカメラのenable_zmqとenable_webrtcはfalseにする
 - binocularはfalseにする。
 - realsenseのシリアルナンバーをserial_numberに設定する。
+- webrtc_portでポートを指定。ブラウザでカメラ画像を表示するときのURLで使用。
 
 以下を実行してカメラサーバーを起動する。
 ```
@@ -121,6 +122,8 @@ docker compose run --rm \
   "${devices[@]}" \
   image-server image-server --rs
 ```
+`https://<画像サーバーを立ててるPCのIPアドレス>:<webrtc_portで設定したポート>`からカメラ画像の確認ができればOK
 
-## ロボット視点でテレオペ
-一度メタクエスト上でブラウザから
+## ロボット視点のカメラ画像を見ながらテレオペ
+一度メタクエスト上でブラウザから`https://192.168.123.164:60001`にアクセスする(IPアドレス、ポートはカメラサーバーに合わせて変える)。ブラウザからカメラ画像を見るときと同じように、カメラ画像が見れればOK.
+メタクエストのブックマークに登録したテレオペ画面を開き、Virtual Realityの方を選択
