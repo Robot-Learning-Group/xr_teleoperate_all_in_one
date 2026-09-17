@@ -14,7 +14,7 @@ docker compose build sim  # シミュレーション
 
 ## シミュレーションとXRの起動
 
-1. `docker/.env` のIMG_SERVER_IP` をQuestから接続できる画像サーバーPCのLAN IPに設定します。
+1. `docker/.env` の`IMG_SERVER_IP` をQuestから接続できる画像サーバーPCのLAN IPに`NETWORK_INTERFACE` をPCのNIC名に設定します。
 2. シミュレーションの起動
 ```bash
 ./docker/sim.sh
@@ -26,7 +26,9 @@ docker compose build sim  # シミュレーション
 
 Questで `https://<XRを動かすPCのIP>:8012/` を開き、証明書の警告が出た場合は承認してください。
 
-`r`：追従開始、`s`：記録開始／保存、`q`：終了。
+テレオペを起動した端末で、`r`：追従開始、`s`：記録開始／保存、`t`：物体のみリセット（シミュレーション限定）、`q`：終了。
+
+`t` は追従開始前にも使え、記録の開始・保存は行いません。記録中なら記録を継続します。
 
 ## 実機での起動
 
@@ -80,3 +82,42 @@ XR側の起動コマンドは同じです。Revo2は現在、円柱タスクの�
 ```
 
 ホストの `data/<指定した名前>/episode_XXXX/` に保存します。同じ名前で再起動するとエピソードを追加します。
+
+## PCに複数のカメラを接続してサーバーを立てるときのの設定
+docker/cam_config_server.yamlを編集する。以下は左手カメラの設定の例。realsenseを想定。
+```
+# =====================================================
+# Left wrist camera configuration
+# =====================================================
+left_wrist_camera:
+  enable_zmq: true
+  zmq_port : 55556
+  enable_webrtc: true
+  webrtc_port : 60002
+  webrtc_codec: h264
+  type: realsense
+  image_shape: [480, 640]
+  binocular: false
+  fps: 30
+  video_id: null
+  serial_number: "218622278518"
+  physical_path: null
+```
+- 使わないカメラのenable_zmqとenable_webrtcはfalseにする
+- binocularはfalseにする。
+- realsenseのシリアルナンバーをserial_numberに設定する。
+
+以下を実行してカメラサーバーを起動する。
+```
+cd docker
+
+devices=()
+for dev in /dev/video*; do
+  [[ -c "$dev" ]] && devices+=(-v "$dev:$dev")
+done
+
+docker compose run --rm \
+  -v /dev/bus/usb:/dev/bus/usb \
+  "${devices[@]}" \
+  image-server image-server --rs
+```

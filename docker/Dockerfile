@@ -177,6 +177,9 @@ RUN conda run --no-capture-output -n tv python -m pip install --upgrade pip && \
       -e /workspace/dex-retargeting \
       -r /opt/xr-aio/xr-requirements.txt
 
+# RealSense support is enabled by teleimager-server --rs.
+RUN conda run --no-capture-output -n tv python -m pip install --no-cache-dir pyrealsense2
+
 COPY xr_teleoperate /workspace/xr_teleoperate
 RUN test -f /workspace/xr_teleoperate/teleop/teleop_hand_and_arm.py
 
