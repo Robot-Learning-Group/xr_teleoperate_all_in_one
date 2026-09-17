@@ -14,7 +14,7 @@ docker compose build sim  # シミュレーション
 
 ## シミュレーションとXRの起動
 
-1. `docker/.env` の`IMG_SERVER_IP` をQuestから接続できる画像サーバーPCのLAN IPに`NETWORK_INTERFACE` をPCのNIC名に設定します。
+1. `docker/.env` の`IMG_SERVER_IP` をQuestから接続できる画像サーバーPCのLAN IPに`NETWORK_INTERFACE` をテレオペを動かすPCのネットワークインターフェース名に設定。
 2. シミュレーションの起動
 ```bash
 ./docker/sim.sh
@@ -32,7 +32,7 @@ Questで `https://<XRを動かすPCのIP>:8012/` を開き、証明書の警告�
 
 ## 実機での起動
 
-1. `docker/.env` の `IMG_SERVER_IP` を画像サーバーPCのIP、`NETWORK_INTERFACE` を実機に接続したNIC名に設定します。
+1. `docker/.env` の `IMG_SERVER_IP` を画像サーバーPCのIP、`NETWORK_INTERFACE` をテレオペを動かすPCのネットワークインターフェース名に設定。
 2. コントローラのL2＋R2を長押しして、G1をDeveloperモードにする
 3. テレオペ起動
 
@@ -121,3 +121,6 @@ docker compose run --rm \
   "${devices[@]}" \
   image-server image-server --rs
 ```
+
+## ロボット視点でテレオペ
+一度メタクエスト上でブラウザから
