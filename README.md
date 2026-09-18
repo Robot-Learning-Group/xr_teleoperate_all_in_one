@@ -58,7 +58,23 @@ Questで `https://<XRを動かすPCのIP>:8012/` を開き、証明書の警告�
 上記,シミュレーションとXRの起動の1.を参照。`IMG_SERVER_IP`は画像サーバーが立ってるPCのIPを指定。つまりG1内部のパソコンで画像サーバーを立てていたら、`192.168.123.164`となる。
 2. コントローラのL2＋R2を長押しして、G1をDeveloperモードにする
 3. 画像サーバーを起動する
+   ```bash
+   # G1内部のPCの画像サーバーの例
+   ssh unitree@192.168.123.164
+
+   # パスワードの入力、(ロボットによっては)rosの選択(1を選択)が挟まる
+
+   # フォルダの移動
+   cd teleimager
+   # conda環境の起動
+   conda activate teleimager
+   # イメージサーバーの起動
+   teleimager-server --rs
+   ```
 4. 5指ハンドのプログラムを起動する。
+   ```bash
+   
+   ```
 5. テレオペ起動する
 
 ```bash
@@ -113,7 +129,7 @@ XR側の起動コマンドは同じです。Revo2は現在、円柱タスクの�
 テレオペのコマンド(`./docker/teleop-sim.sh`など)で指定する。データセット名は`--task-name` を、言語指示は'--task-goal'を指定します。
 
 ```bash
-./docker/teleop-sim.sh --task-name red_block_01　--task-goal "pick up the red block"
+./docker/teleop-sim.sh --task-name red_block_01 --task-goal "pick up the red block"
 ```
 
 ホストの `data/<指定した名前>/episode_XXXX/` に保存します。同じ名前で再起動するとエピソードを追加します。
