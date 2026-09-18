@@ -14,15 +14,37 @@ docker compose build sim  # シミュレーション
 
 ## シミュレーションとXRの起動
 0. 初回は`cp docker/.env.sim.example docker/.env.sim` で設定ファイルを作成
-1. `docker/.env` の`IMG_SERVER_IP` をQuestから接続できる画像サーバーPCのLAN IPに`NETWORK_INTERFACE` をテレオペを動かすPCのネットワークインターフェース名に設定。
+1. `docker/.env` の`IMG_SERVER_IP` をQuestから接続できる画像サーバーPCのLAN IPに`NETWORK_INTERFACE` をテレオペを動かすPCのネットワークインターフェース名に設定。\
+   - `IMG_SERVER_IP`について \
+  画像サーバーが立ってるPCに合わせる。シミュレーション動かしているPCのIPアドレスを使用。 
+   - `NETWORK_INTERFACE`について \
+  ロボットと通信するときのインターフェース名に合わせる.
+      ```
+      ip addr
+      ```
+      とコマンドを打つと
+      ```
+      1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
+          link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+          inet 127.0.0.1/8 scope host lo
+            valid_lft forever preferred_lft forever
+          inet6 ::1/128 scope host 
+            valid_lft forever preferred_lft forever
+      2: enp3s0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc fq_codel state UP group default qlen 1000
+          link/ether ac:b4:80:2e:f9:93 brd ff:ff:ff:ff:ff:ff
+          inet 192.168.123.222/24 brd 192.168.123.255 scope global noprefixroute enp3s0
+            valid_lft forever preferred_lft forever
+      ```
+      のような結果が得られる。192.168.123.xのアドレスを使用するので、`enp3s0`がいま必要なネットワークインターフェース名となる。
+
 2. シミュレーションの起動
-```bash
-./docker/sim.sh
-```
+    ```bash
+    ./docker/sim.sh
+    ```
 3. テレオペの起動
-```bash
-./docker/teleop-sim.sh
-```
+    ```bash
+    ./docker/teleop-sim.sh
+    ```
 
 Questで `https://<XRを動かすPCのIP>:8012/` を開き、証明書の警告が出た場合は承認してください。
 
@@ -32,16 +54,19 @@ Questで `https://<XRを動かすPCのIP>:8012/` を開き、証明書の警告�
 
 ## 実機での起動
 0. 初回は`cp docker/.env.real.example docker/.env.real` で設定ファイルを作成
-1. `docker/.env` の `IMG_SERVER_IP` を画像サーバーPCのIP、`NETWORK_INTERFACE` をテレオペを動かすPCのネットワークインターフェース名に設定。
+1. `docker/.env` の `IMG_SERVER_IP` を画像サーバーPCのIP、`NETWORK_INTERFACE` をテレオペを動かすPCのネットワークインターフェース名に設定。\
+上記,シミュレーションとXRの起動の1.を参照。`IMG_SERVER_IP`は画像サーバーが立ってるPCのIPを指定。つまりG1内部のパソコンで画像サーバーを立てていたら、`192.168.123.164`となる。
 2. コントローラのL2＋R2を長押しして、G1をDeveloperモードにする
-3. テレオペ起動
+3. 画像サーバーを起動する
+4. 5指ハンドのプログラムを起動する。
+5. テレオペ起動する
 
 ```bash
 ./docker/teleop-real.sh
 ```
 
 ## 3指、5指の切り替え
-コマンドの末尾に以下を付ける。
+Sim起動のコマンド, テレオペのコマンドの双方の末尾に以下を付ける。
 ```bash
 # 3指ハンド
 ./docker/teleop-real.sh　--ee dex3
@@ -50,7 +75,7 @@ Questで `https://<XRを動かすPCのIP>:8012/` を開き、証明書の警告�
 ```
 何も指定しなかったら3指ハンドになる。
 ## コントローラ、ハンドトラッキングの切り替え
-コマンドの末尾に以下を付ける
+テレオペのコマンド(`./docker/teleop-sim.sh`など)の末尾に以下を付ける
 
 ```bash
 # ハンドトラッキング
@@ -58,10 +83,20 @@ Questで `https://<XRを動かすPCのIP>:8012/` を開き、証明書の警告�
 # コントローラ
 ./docker/teleop-real.sh　--input-mode controller
 ```
-何も指定しなかったらコントローラになる。
+
+## パススルーモード、VRモード（ロボット視点でテレオペ）の切り替え
+テレオペのコマンド(`./docker/teleop-real.sh`)の末尾に以下を付ける
+
+```bash
+# パススルーモード
+./docker/teleop-real.sh　--display-mode pass-through
+# VRモード
+./docker/teleop-real.sh　--display-mode immersive
+```
+何も指定しなかったらパススルーになる。
 ## タスクの変更
 
-Sim起動時に `--task` を追加します。
+Sim起動のコマンド(`./docker/sim.sh`)に `--task` を追加します。
 
 ```bash
 # 赤いブロック（Dex3）
@@ -75,7 +110,7 @@ XR側の起動コマンドは同じです。Revo2は現在、円柱タスクの�
 
 ## データセット名、言語指示の変更
 
-データセット名は`--task-name` を、言語指示は'--task-goal'を指定します。
+テレオペのコマンド(`./docker/teleop-sim.sh`など)で指定する。データセット名は`--task-name` を、言語指示は'--task-goal'を指定します。
 
 ```bash
 ./docker/teleop-sim.sh --task-name red_block_01　--task-goal "pick up the red block"

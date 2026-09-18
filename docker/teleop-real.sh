@@ -23,6 +23,7 @@ exec docker compose --env-file .env.real run --rm \
     fi
     exec python teleop_hand_and_arm.py \
         --input-mode controller \
+        --display-mode pass-through \
         --arm G1_29 \
         --record \
         --img-server-ip "$IMG_SERVER_IP" \

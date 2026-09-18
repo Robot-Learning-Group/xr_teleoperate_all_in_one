@@ -24,6 +24,7 @@ exec docker compose --env-file .env.sim run --rm \
     exec python teleop_hand_and_arm.py \
         --sim \
         --input-mode controller \
+        --display-mode pass-through \
         --arm G1_29 \
         --ee dex3 \
         --record \
