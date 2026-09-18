@@ -71,9 +71,15 @@ Questで `https://<XRを動かすPCのIP>:8012/` を開き、証明書の警告�
    # イメージサーバーの起動
    teleimager-server --rs
    ```
-4. 5指ハンドのプログラムを起動する。
+4. 5指ハンドのサーバーを起動する。
    ```bash
-   
+   ssh unitree@192.168.123.164
+   # パスワードの入力、(ロボットによっては)rosの選択(1を選択)が挟まる     
+
+   # フォルダの移動
+   cd brainco_hand_service/bin
+   # ハンドサーバーの起動
+   sudo ./brainco_hand_server
    ```
 5. テレオペ起動する
 
