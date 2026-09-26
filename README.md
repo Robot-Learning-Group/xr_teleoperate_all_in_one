@@ -1,6 +1,21 @@
-# XR Teleoperate
+# XR Teleoperate all in one
 
-`docker compose` は `docker/` 内、`./docker/…` はリポジトリルートで実行します。
+## PCのセットアップ（初回のみ）
+
+テレオペ・シミュレーション用PC向け。Ubuntu 20.04／22.04／24.04（x86_64）とNVIDIA GPUが前提。
+
+```bash
+sudo apt update && sudo apt install -y git git-lfs
+git lfs install
+git clone https://github.com/Robot-Learning-Group/xr_teleoperate_all_in_one.git
+cd xr_teleoperate_all_in_one
+
+# NVIDIAドライバ580 open・CUDA Toolkit 12.8・Docker・NVIDIA Container Toolkitを導入
+# ドライバ未導入の場合はドライバだけ入れて終了するので、再起動後にもう一度実行
+sudo bash scripts/install_docker_nvidia.sh
+```
+
+完了後、ログアウトして再ログインする（sudoなしでdockerを使うため）。
 
 ## ビルド
 
@@ -91,9 +106,9 @@ Questで `https://<XRを動かすPCのIP>:8012/` を開き、証明書の警告�
 Sim起動のコマンド, テレオペのコマンドの双方の末尾に以下を付ける。
 ```bash
 # 3指ハンド
-./docker/teleop-real.sh　--ee dex3
+./docker/teleop-real.sh --ee dex3
 # 5指ハンド
-./docker/teleop-real.sh　--ee brainco
+./docker/teleop-real.sh --ee brainco
 ```
 何も指定しなかったら3指ハンドになる。
 ## コントローラ、ハンドトラッキングの切り替え
@@ -101,9 +116,9 @@ Sim起動のコマンド, テレオペのコマンドの双方の末尾に以下
 
 ```bash
 # ハンドトラッキング
-./docker/teleop-real.sh　--input-mode hand
+./docker/teleop-real.sh --input-mode hand
 # コントローラ
-./docker/teleop-real.sh　--input-mode controller
+./docker/teleop-real.sh --input-mode controller
 ```
 
 ## パススルーモード、VRモード（ロボット視点でテレオペ）の切り替え
@@ -111,9 +126,9 @@ Sim起動のコマンド, テレオペのコマンドの双方の末尾に以下
 
 ```bash
 # パススルーモード
-./docker/teleop-real.sh　--display-mode pass-through
+./docker/teleop-real.sh --display-mode pass-through
 # VRモード
-./docker/teleop-real.sh　--display-mode immersive
+./docker/teleop-real.sh --display-mode immersive
 ```
 何も指定しなかったらパススルーになる。
 ## タスクの変更
