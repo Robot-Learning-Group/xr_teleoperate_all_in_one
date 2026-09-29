@@ -58,10 +58,10 @@ docker compose build sim  # シミュレーション
     ```
 3. テレオペの起動
     ```bash
-    ./docker/teleop-sim.sh
+    ./docker/teleop-sim.sh --display-mode immersive
     ```
 
-Questで `https://<XRを動かすPCのIP>:8012/` を開き、証明書の警告が出た場合は承認してください。
+Questで `https://<XRを動かすPCのIP>:8012/?ws=wss://<XRを動かすPCのIP>:8012` を開き、証明書の警告が出た場合は承認してください。
 
 テレオペを起動した端末で、`r`：追従開始、`s`：記録開始／保存、`t`：物体のみリセット（シミュレーション限定）、`q`：終了。
 
