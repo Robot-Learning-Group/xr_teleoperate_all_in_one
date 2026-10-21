@@ -36,6 +36,11 @@ case "$command" in
             --img-server-ip "${IMG_SERVER_IP:-127.0.0.1}" \
             "${network_args[@]}" "$@"
         ;;
+    oak-uvc)
+        conda activate tv
+        exec python /opt/xr-aio/oak_uvc_rgb.py \
+            --config /workspace/teleimager/oak_uvc_config.yaml "$@"
+        ;;
     image-server|image-server-cf)
         conda activate tv
         cd /workspace/teleimager
@@ -56,7 +61,7 @@ case "$command" in
         exec bash "$@"
         ;;
     *)
-        echo "Usage: $0 {sim|sim-brainco|teleop-sim|teleop-real|image-server|image-server-cf|shell|sim-shell} [arguments...]" >&2
+        echo "Usage: $0 {sim|sim-brainco|teleop-sim|teleop-real|oak-uvc|image-server|image-server-cf|shell|sim-shell} [arguments...]" >&2
         exit 2
         ;;
 esac

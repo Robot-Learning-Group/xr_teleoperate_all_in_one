@@ -197,21 +197,47 @@ left_wrist_camera:
 - realsenseのシリアルナンバーをserial_numberに設定する。
 - webrtc_portでポートを指定。ブラウザでカメラ画像を表示するときのURLで使用。
 
-以下を実行してカメラサーバーを起動する。
-```
-cd docker
-
-devices=()
-for dev in /dev/video*; do
-  [[ -c "$dev" ]] && devices+=(-v "$dev:$dev")
-done
-
-docker compose run --rm \
-  -v /dev/bus/usb:/dev/bus/usb \
-  "${devices[@]}" \
-  image-server image-server --rs
+プロジェクトのルートからカメラサーバーを起動する。
+```bash
+./docker/image-server.sh --rs
 ```
 `https://<画像サーバーを立ててるPCのIPアドレス>:<webrtc_portで設定したポート>`からカメラ画像の確認ができればOK
+
+## OAKカメラを使う場合
+
+`docker/oak_uvc_config.yaml`：
+
+```yaml
+profile: rgb-full-fov  # 2028×1520
+fps: 30
+fov_scale: 1.0        # 小さくすると中央を切り出して拡大（0.5〜1.0）
+ae_compensation: -2  # 露出補正（-9〜9）
+```
+
+`docker/cam_config_server.yaml` の使用するカメラに以下を設定します（配信ポートなどは既存設定を使用）。
+
+```yaml
+type: opencv
+capture_shape: [1520, 2028]  # profileの解像度に合わせる [高さ, 幅]
+image_shape: [480, 640]
+crop_config: oak_uvc_config.yaml
+binocular: false
+fps: 30
+video_id: 6                 # OAKの /dev/videoX のX
+serial_number: null
+physical_path: null
+```
+
+プロジェクトのルートから、順に起動します。
+
+```bash
+# 端末1：起動したままにする
+./docker/oak-uvc.sh
+
+# 端末2：OAKの番号を確認し、上記video_idを合わせてから起動
+grep . /sys/class/video4linux/video*/name
+./docker/image-server.sh
+```
 
 ## ロボット視点のカメラ画像を見ながらテレオペ
 一度メタクエスト上でブラウザから`https://192.168.123.164:60001`にアクセスする(IPアドレス、ポートはカメラサーバーに合わせて変える)。ブラウザからカメラ画像を見るときと同じように、カメラ画像が見れればOK.

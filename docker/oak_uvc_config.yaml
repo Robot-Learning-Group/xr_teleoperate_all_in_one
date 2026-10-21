@@ -1,0 +1,31 @@
+# OAK RGB UVC configuration.
+#
+# Profiles:
+#   rgb-full-fov      2028x1520, central RGB full-FOV, heavier
+#   rgb-full-fov-low  1014x760, central RGB full-FOV, lighter
+#   legacy-720p       1280x720, old 16:9 mode
+profile: rgb-full-fov
+
+# Optional overrides. Leave width/height/sensor_resolution/isp_scale null to use the selected profile.
+width: null
+height: null
+fps: 30
+sensor_resolution: null
+
+# Field-of-view scale applied by teleimager after it captures the OAK UVC frame.
+# The OAK UVC process itself keeps the selected profile at full camera FOV.
+# 1.0 is no extra crop. Values like 0.97 or 0.95 crop/zoom in slightly while
+# keeping the same recorded/streamed resolution.
+# If isp_scale is set manually, teleimager still applies fov_scale after capture.
+fov_scale: 0.70
+isp_scale: null
+
+# Exposure control.
+# ae_compensation is -9..9; negative values reduce white clipping.
+ae_compensation: -2
+ae_max_exposure_us: null
+anti_banding: auto
+
+# Set both values to use fixed exposure, or keep both null for auto exposure.
+manual_exposure_us: null
+manual_iso: null

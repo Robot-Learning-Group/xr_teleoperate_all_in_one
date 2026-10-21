@@ -177,6 +177,13 @@ RUN conda run --no-capture-output -n tv python -m pip install --upgrade pip && \
       -e /workspace/dex-retargeting \
       -r /opt/xr-aio/xr-requirements.txt
 
+# OAK uses the DepthAI v2 UVC API (v3 is incompatible).
+COPY docker/oak_uvc_rgb.py /opt/xr-aio/oak_uvc_rgb.py
+COPY docker/teleimager-oak.patch /opt/xr-aio/teleimager-oak.patch
+RUN git -C /workspace/teleimager apply --check /opt/xr-aio/teleimager-oak.patch && \
+    git -C /workspace/teleimager apply /opt/xr-aio/teleimager-oak.patch && \
+    conda run --no-capture-output -n tv python -m pip install --no-cache-dir "depthai<3"
+
 # RealSense support is enabled by teleimager-server --rs.
 RUN conda run --no-capture-output -n tv python -m pip install --no-cache-dir pyrealsense2
 

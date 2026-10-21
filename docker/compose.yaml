@@ -43,6 +43,12 @@ services:
         bind:
           create_host_path: false
       - type: bind
+        source: ./oak_uvc_config.yaml
+        target: /workspace/teleimager/oak_uvc_config.yaml
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
         source: /etc/vulkan/icd.d
         target: /etc/vulkan/icd.d
         read_only: true
@@ -153,6 +159,12 @@ services:
       - type: bind
         source: ./cam_config_server.yaml
         target: /workspace/teleimager/cam_config_server.yaml
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./oak_uvc_config.yaml
+        target: /workspace/teleimager/oak_uvc_config.yaml
         read_only: true
         bind:
           create_host_path: false

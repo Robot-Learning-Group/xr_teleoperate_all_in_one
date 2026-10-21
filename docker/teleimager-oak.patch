@@ -1,0 +1,133 @@
+--- a/src/teleimager/image_server.py
++++ b/src/teleimager/image_server.py
+@@ -53,6 +53,31 @@
+     "..", "..", "cam_config_server.yaml"
+ )
+ CONFIG_PATH = os.path.normpath(CONFIG_PATH)
++CONFIG_DIR = Path(CONFIG_PATH).parent
++
++
++def _resolve_config_relative_path(path_value):
++    path = Path(path_value)
++    if path.is_absolute():
++        return path
++    return CONFIG_DIR / path
++
++
++def _load_crop_scale(cam_cfg):
++    if cam_cfg.get("crop_scale") is not None:
++        crop_scale = float(cam_cfg["crop_scale"])
++    elif cam_cfg.get("crop_config") is not None:
++        crop_config_path = _resolve_config_relative_path(cam_cfg["crop_config"])
++        with crop_config_path.open("r", encoding="utf-8") as f:
++            crop_config = yaml.safe_load(f) or {}
++        crop_scale = float(crop_config.get("fov_scale", 1.0))
++    else:
++        return None
++
++    if not 0.5 <= crop_scale <= 1.0:
++        raise ValueError("camera crop_scale/fov_scale must be between 0.5 and 1.0")
++    return crop_scale
++
+ 
+ # ========================================================
+ # certificate and key paths
+@@ -1143,14 +1168,19 @@
+ 
+ class OpenCVCamera(BaseCamera):
+     def __init__(self, cam_topic, video_path, img_shape, fps, 
+-                 enable_zmq=True, zmq_port=55555, enable_webrtc=False, webrtc_port=66666, webrtc_codec=None):
++                 enable_zmq=True, zmq_port=55555, enable_webrtc=False, webrtc_port=66666, webrtc_codec=None,
++                 crop_scale=None, capture_shape=None):
+         super().__init__(cam_topic, img_shape, fps, enable_zmq, zmq_port, enable_webrtc, webrtc_port, webrtc_codec)
+         self._video_path = video_path
++        self._capture_shape = capture_shape or img_shape
++        self._crop_scale = float(crop_scale) if crop_scale is not None else None
++        if self._crop_scale is not None and not 0.5 <= self._crop_scale <= 1.0:
++            raise ValueError("crop_scale must be between 0.5 and 1.0")
+ 
+         self.cap = cv2.VideoCapture(self._video_path, cv2.CAP_V4L2)
+         self.cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
+-        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self._img_shape[0])
+-        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH,  self._img_shape[1])
++        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self._capture_shape[0])
++        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH,  self._capture_shape[1])
+         self.cap.set(cv2.CAP_PROP_FPS, self._fps)
+         if not self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1):
+             logger_mp.info(f"[OpenCVCamera: {cam_topic}] CAP_PROP_BUFFERSIZE=1 not supported by backend, kernel buffer left at default")
+@@ -1170,6 +1200,28 @@
+             f"WebRTC: {'enabled, webrtc port=' + str(self._webrtc_port) if self._enable_webrtc else 'disabled'}"
+         )
+         
++    def _crop_size(self, width, height):
++        output_height, output_width = self._img_shape[:2]
++        output_aspect = output_width / output_height
++
++        crop_width = max(2, int(width * self._crop_scale))
++        crop_height = max(2, int(round(crop_width / output_aspect)))
++        if crop_height > height:
++            crop_height = height
++            crop_width = max(2, int(round(crop_height * output_aspect)))
++        return crop_width, crop_height
++
++    def _apply_crop_scale(self, bgr_numpy):
++        if bgr_numpy is None or self._crop_scale is None:
++            return bgr_numpy
++        height, width = bgr_numpy.shape[:2]
++        crop_width, crop_height = self._crop_size(width, height)
++        output_height, output_width = self._img_shape[:2]
++        crop_x = max(0, (width - crop_width) // 2)
++        crop_y = max(0, (height - crop_height) // 2)
++        cropped = bgr_numpy[crop_y:crop_y + crop_height, crop_x:crop_x + crop_width]
++        return cv2.resize(cropped, (output_width, output_height), interpolation=cv2.INTER_LINEAR)
++
+     def _can_read_frame(self):
+         success, _ = self.cap.read()
+         return success
+@@ -1178,6 +1230,7 @@
+         if self.cap is not None:
+             ret, bgr_numpy = self.cap.read()
+             if ret:
++                bgr_numpy = self._apply_crop_scale(bgr_numpy)
+                 if self._enable_webrtc:
+                     self._webrtc_buffer.write(bgr_numpy)
+ 
+@@ -1318,6 +1371,8 @@
+                 serial_number = str(cam_cfg.get("serial_number")) if cam_cfg.get("serial_number") else None
+ 
+                 if cam_type == "opencv":
++                    crop_scale = _load_crop_scale(cam_cfg)
++                    capture_shape = cam_cfg.get("capture_shape")
+                     if physical_path is not None:
+                         vpath = self._cam_finder.get_vpath_by_ppath(physical_path)
+                         if vpath is None:
+@@ -1325,7 +1380,8 @@
+                             logger_mp.error(f"[Image Server] Cannot find OpenCVCamera for {cam_topic} with physical path {physical_path}")
+                         else:
+                             self._cameras[cam_topic] = OpenCVCamera(cam_topic, vpath, img_shape, fps, 
+-                                                                    enable_zmq, zmq_port, enable_webrtc, webrtc_port, webrtc_codec)
++                                                                    enable_zmq, zmq_port, enable_webrtc, webrtc_port, webrtc_codec,
++                                                                    crop_scale, capture_shape)
+                             continue
+ 
+                     if serial_number is not None:
+@@ -1335,7 +1391,8 @@
+                             logger_mp.error(f"[Image Server] Cannot find OpenCVCamera for {cam_topic} with serial number {serial_number}")
+                         else:
+                             self._cameras[cam_topic] = OpenCVCamera(cam_topic, vpath, img_shape, fps, 
+-                                                                    enable_zmq, zmq_port, enable_webrtc, webrtc_port, webrtc_codec)
++                                                                    enable_zmq, zmq_port, enable_webrtc, webrtc_port, webrtc_codec,
++                                                                    crop_scale, capture_shape)
+                         # once you specify either `physical_path` or `serial_number`, the system will no longer fall back to searching by `video_id`.
+                         # ——— even if no camera matches the given path/serial.
+                         continue
+@@ -1345,7 +1402,8 @@
+                         logger_mp.error(f"[Image Server] Cannot find OpenCVCamera for {cam_topic} with video_id {video_id}")
+                     else:
+                         self._cameras[cam_topic] = OpenCVCamera(cam_topic, video_path, img_shape, fps,
+-                                                                enable_zmq, zmq_port, enable_webrtc, webrtc_port, webrtc_codec)
++                                                                enable_zmq, zmq_port, enable_webrtc, webrtc_port, webrtc_codec,
++                                                                    crop_scale, capture_shape)
+                         
+ 
+                 elif cam_type == "realsense":
