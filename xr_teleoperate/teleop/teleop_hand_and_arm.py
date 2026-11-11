@@ -91,6 +91,7 @@ if __name__ == '__main__':
     parser.add_argument('--ipc', action = 'store_true', help = 'Enable IPC server to handle input; otherwise enable sshkeyboard')
     # record mode and task info
     parser.add_argument('--record', action = 'store_true', help = 'Enable data recording mode')
+    parser.add_argument('--record-tactile', action = 'store_true', help = 'Record Dex3 press sensor data (real robot only, requires --ee dex3 --record)')
     parser.add_argument('--task-dir', type = str, default = './utils/data/', help = 'path to save data')
     parser.add_argument('--task-name', type = str, default = 'pick cube', help = 'task file name for recording')
     parser.add_argument('--task-goal', type = str, default = 'pick up cube.', help = 'task goal for recording at json file')
@@ -102,6 +103,8 @@ if __name__ == '__main__':
 
     if args.ee == "dex1_internal" and args.motion:
         parser.error("--ee dex1_internal does not currently support --motion.")
+    if args.record_tactile and (args.ee != "dex3" or not args.record or args.sim):
+        parser.error("--record-tactile requires --ee dex3 and --record, and is not supported with --sim.")
 
     try:
         # setup dds communication domains id
@@ -192,7 +195,7 @@ if __name__ == '__main__':
         if args.ee in ("inspire_ftp", "inspire_dfx") and args.input_mode == "controller":
             raise ValueError(f"{args.ee} does not support controller input mode.")
         elif args.ee == "dex3":
-            from teleop.robot_control.robot_hand_unitree import Dex3_1_Controller
+            from teleop.robot_control.robot_hand_unitree import Dex3_1_Controller, Dex3_Tactile_Len
             # Controller values are [trigger (10=open), squeeze (0=open)].
             hand_input = [10.0, 0.0] if args.input_mode == "controller" else 75
             left_hand_pos_array = Array('d', hand_input, lock = True)
@@ -200,9 +203,11 @@ if __name__ == '__main__':
             dual_hand_data_lock = Lock()
             dual_hand_state_array = Array('d', 14, lock = False)   # [output] current left, right hand state(14) data.
             dual_hand_action_array = Array('d', 14, lock = False)  # [output] current left, right hand action(14) data.
-            hand_ctrl = Dex3_1_Controller(left_hand_pos_array, right_hand_pos_array, dual_hand_data_lock, 
+            # [output] left, right press sensor pressures (Dex3_Tactile_Len each)
+            dual_hand_tactile_array = Array('d', 2 * Dex3_Tactile_Len, lock = True) if args.record_tactile else None
+            hand_ctrl = Dex3_1_Controller(left_hand_pos_array, right_hand_pos_array, dual_hand_data_lock,
                                           dual_hand_state_array, dual_hand_action_array, simulation_mode=args.sim, xr_motion_data_ready_in=xr_motion_data_ready,
-                                          input_mode=args.input_mode)
+                                          input_mode=args.input_mode, dual_hand_tactile_array_out=dual_hand_tactile_array)
         elif args.ee == "dex1":
             from teleop.robot_control.robot_hand_unitree import Dex1_1_Gripper_Controller
             left_gripper_value = Value('d', 0.0, lock=True)        # [input]
@@ -526,11 +531,16 @@ if __name__ == '__main__':
                             "qpos": current_body_action,
                         }, 
                     }
+                    tactiles = None
+                    if args.record_tactile:
+                        with dual_hand_tactile_array.get_lock():
+                            tactile_data = list(dual_hand_tactile_array[:])
+                        tactiles = {"left_ee": tactile_data[:Dex3_Tactile_Len], "right_ee": tactile_data[Dex3_Tactile_Len:]}
                     if args.sim:
-                        sim_state = sim_state_subscriber.read_data()            
-                        recorder.add_item(colors=colors, depths=depths, states=states, actions=actions, sim_state=sim_state)
+                        sim_state = sim_state_subscriber.read_data()
+                        recorder.add_item(colors=colors, depths=depths, states=states, actions=actions, tactiles=tactiles, sim_state=sim_state)
                     else:
-                        recorder.add_item(colors=colors, depths=depths, states=states, actions=actions)
+                        recorder.add_item(colors=colors, depths=depths, states=states, actions=actions, tactiles=tactiles)
 
             current_time = time.time()
             time_elapsed = current_time - start_time

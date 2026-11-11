@@ -25,6 +25,9 @@ logger_mp = logging_mp.getLogger(__name__)
 
 
 Dex3_Num_Motors = 7
+Dex3_Num_Press_Sensors = 9
+Dex3_Press_Sensor_Len = 12
+Dex3_Tactile_Len = Dex3_Num_Press_Sensors * Dex3_Press_Sensor_Len  # per hand
 kTopicDex3LeftCommand = "rt/dex3/left/cmd"
 kTopicDex3RightCommand = "rt/dex3/right/cmd"
 kTopicDex3LeftState = "rt/dex3/left/state"
@@ -64,7 +67,7 @@ def dex3_controller_targets(trigger, squeeze, *, left):
 class Dex3_1_Controller:
     def __init__(self, left_hand_array_in, right_hand_array_in, dual_hand_data_lock = None, dual_hand_state_array_out = None,
                        dual_hand_action_array_out = None, fps = 100.0, Unit_Test = False, simulation_mode = False, xr_motion_data_ready_in = None,
-                       input_mode = "hand"):
+                       input_mode = "hand", dual_hand_tactile_array_out = None):
         """
         [note] A *_array type parameter requires using a multiprocessing Array, because it needs to be passed to the internal child process
 
@@ -83,10 +86,13 @@ class Dex3_1_Controller:
         Unit_Test: Whether to enable unit testing
 
         simulation_mode: Whether to use simulation mode (default is False, which means using real robot)
+
+        dual_hand_tactile_array_out: [output] Optional locked Array of left(108), right(108) press sensor pressures
         """
         logger_mp.info("Initialize Dex3_1_Controller...")
 
         self.fps = fps
+        self.dual_hand_tactile_array_out = dual_hand_tactile_array_out
         self.Unit_Test = Unit_Test
         self.simulation_mode = simulation_mode
         self.input_mode = input_mode
@@ -143,6 +149,13 @@ class Dex3_1_Controller:
                 # Update right hand state
                 for idx, id in enumerate(Dex3_1_Right_JointIndex):
                     self.right_hand_state_array[idx] = right_hand_msg.motor_state[id].q
+                # Update tactile (press sensor) state if requested
+                if self.dual_hand_tactile_array_out is not None:
+                    for side, msg in enumerate((left_hand_msg, right_hand_msg)):
+                        vals = [p for s in msg.press_sensor_state[:Dex3_Num_Press_Sensors] for p in s.pressure]
+                        offset = side * Dex3_Tactile_Len
+                        with self.dual_hand_tactile_array_out.get_lock():
+                            self.dual_hand_tactile_array_out[offset:offset + len(vals)] = vals
             time.sleep(0.002)
     
     class _RIS_Mode:
